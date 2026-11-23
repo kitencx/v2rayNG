@@ -573,4 +573,12 @@
     <string name="sub_info_open_page">Mở trang thông tin đăng ký</string>
     <string name="sub_info_unlimited">Không giới hạn</string>
 
+    <string name="home_no_profiles">Chưa có cấu hình</string>
+    <string name="home_import_hint">Thêm đăng ký hoặc nhập cấu hình.</string>
+    <string name="home_service_running">Dịch vụ đang chạy</string>
+    <string name="home_import_text">Nhập văn bản</string>
+    <string name="home_add_and_update">Thêm và cập nhật</string>
+    <string name="home_import_options">Tùy chọn nhập khác</string>
+    <string name="home_move_up">Chuyển lên</string>
+    <string name="home_move_down">Chuyển xuống</string>
 </resources>

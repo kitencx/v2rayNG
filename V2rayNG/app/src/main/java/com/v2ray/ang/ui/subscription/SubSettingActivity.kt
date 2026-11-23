@@ -1,13 +1,21 @@
 package com.v2ray.ang.ui.subscription
 
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Bundle
+import androidx.activity.compose.BackHandler
 import androidx.activity.viewModels
 import androidx.annotation.StringRes
+import androidx.compose.foundation.background
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,25 +28,31 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.v2ray.ang.AppConfig
 import com.v2ray.ang.R
+import com.v2ray.ang.dto.entities.SubscriptionItem
 import com.v2ray.ang.extension.toast
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.handler.MmkvManager.rememberMmkvBool
@@ -68,27 +82,88 @@ class SubSettingActivity : BaseComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        viewModel.refreshProfileSuggestions()
     }
 
     @Composable
     override fun ScreenContent() {
         val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
-        SubSettingScreen(
-            viewModel = viewModel,
-            isLoading = isLoading,
-            onBackClick = { finish() },
-            onAddClick = { startActivity(Intent(this, SubEditActivity::class.java)) },
-            onSubUpdate = { viewModel.updateSubscriptions() },
-            onEditSub = { subId ->
-                startActivity(Intent(this, SubEditActivity::class.java).putExtra("subId", subId))
-            },
-            onRemoveSub = { subId -> removeSub(subId) },
-            onShareQRCode = viewModel::shareQRCode,
-            onShareClipboard = { url ->
-                Utils.setClipboard(this, url)
-                toast(getString(R.string.toast_success))
+        val subscriptions by viewModel.subsFlow.collectAsStateWithLifecycle()
+        val suggestions by viewModel.profileSuggestions.collectAsStateWithLifecycle()
+        var editorId by rememberSaveable { mutableStateOf<String?>(null) }
+        val editorState = rememberSaveableStateHolder()
+        val id = editorId
+        val item = if (id == "") remember { SubscriptionItem() } else {
+            subscriptions.firstOrNull { it.guid == id }?.subscription
+        }
+        val closeEditor = {
+            if (id != null) editorState.removeState(id)
+            editorId = null
+        }
+        val uiMode = LocalConfiguration.current.uiMode and Configuration.UI_MODE_TYPE_MASK
+
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val wide = uiMode != Configuration.UI_MODE_TYPE_TELEVISION && maxWidth >= 680.dp && maxWidth > maxHeight
+            BackHandler(id != null) { closeEditor() }
+            val editor: @Composable () -> Unit = {
+                if (id != null && item != null) {
+                    editorState.SaveableStateProvider(id) {
+                        SubEditScreen(
+                            editSubId = id,
+                            initial = item,
+                            profileSuggestions = suggestions,
+                            onBackClick = closeEditor,
+                            onSave = {
+                                viewModel.saveFromEditor(id, it) {
+                                    if (editorId == id) closeEditor()
+                                }
+                            },
+                            onDelete = {},
+                            embedded = true,
+                        )
+                    }
+                } else {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(stringResource(R.string.title_sub_setting), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             }
-        )
+            if (!wide && id != null && item != null) {
+                editor()
+                return@BoxWithConstraints
+            }
+            Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(if (wide) 16.dp else 0.dp)) {
+                Box(Modifier.weight(1f).fillMaxHeight()) {
+                    SubSettingScreen(
+                        viewModel = viewModel,
+                        isLoading = isLoading,
+                        onBackClick = { finish() },
+                        onAddClick = {
+                            if (wide) editorId = "" else startActivity(Intent(this@SubSettingActivity, SubEditActivity::class.java))
+                        },
+                        onSubUpdate = { viewModel.updateSubscriptions() },
+                        onEditSub = { id ->
+                            if (wide) editorId = id
+                            else startActivity(Intent(this@SubSettingActivity, SubEditActivity::class.java).putExtra("subId", id))
+                        },
+                        onRemoveSub = { subId -> removeSub(subId) },
+                        onShareQRCode = viewModel::shareQRCode,
+                        onShareClipboard = { url ->
+                            Utils.setClipboard(this@SubSettingActivity, url)
+                            toast(getString(R.string.toast_success))
+                        },
+                        editorId = editorId.takeIf { wide },
+                    )
+                }
+                if (wide) {
+                    Surface(
+                        modifier = Modifier.weight(1.1f).fillMaxHeight().padding(end = 16.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        content = editor,
+                    )
+                }
+            }
+        }
     }
 
     override fun onResume() {
@@ -111,7 +186,8 @@ fun SubSettingScreen(
     onEditSub: (String) -> Unit,
     onRemoveSub: (String) -> Unit,
     onShareQRCode: (String) -> Unit,
-    onShareClipboard: (String) -> Unit
+    onShareClipboard: (String) -> Unit,
+    editorId: String? = null,
 ) {
     val subscriptions by viewModel.subsFlow.collectAsStateWithLifecycle()
     var showUpdateDialog by remember { mutableStateOf(false) }
@@ -164,26 +240,24 @@ fun SubSettingScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .background(
+                                    if (subCache.guid == editorId) MaterialTheme.colorScheme.primaryContainer
+                                    else MaterialTheme.colorScheme.surface,
+                                )
                                 .padding(horizontal = 14.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
+                            Column(
+                                modifier = Modifier.weight(1f)
+                                    .selectable(subCache.guid == editorId, role = Role.Button, onClick = { onEditSub(subCache.guid) })
+                                    .padding(vertical = 12.dp),
+                            ) {
                                 Text(
                                     text = subCache.subscription.remarks,
                                     style = MaterialTheme.typography.bodyLarge,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
-                                if (subCache.subscription.url.isNotEmpty()) {
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = subCache.subscription.url,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = Utils.formatTimestamp(subCache.subscription.lastUpdated),
@@ -206,12 +280,6 @@ fun SubSettingScreen(
                                                 contentDescription = stringResource(R.string.acc_share_subscription)
                                             )
                                         }
-                                    }
-                                    IconButton(onClick = { onEditSub(subCache.guid) }) {
-                                        Icon(
-                                            painter = painterResource(R.drawable.ic_edit_24dp),
-                                            contentDescription = stringResource(R.string.acc_edit)
-                                        )
                                     }
                                     IconButton(onClick = {
                                         if (confirmRemove) removeTarget = SubscriptionDeleteTarget(subCache.guid, subCache.subscription.remarks)

@@ -60,8 +60,8 @@ internal fun serverMenuActions(
 }
 
 @Composable
-fun ImportMenuContent(onAction: (MainAction) -> Unit) = AppDropdownMenuItems(
-    items = ImportMenuAction.entries,
+fun ImportMenuContent(onAction: (MainAction) -> Unit, hasCamera: Boolean = true) = AppDropdownMenuItems(
+    items = ImportMenuAction.entries.filter { hasCamera || it != ImportMenuAction.QRCode },
     labelRes = { it.labelRes },
     onSelected = { onAction(it.action) }
 )

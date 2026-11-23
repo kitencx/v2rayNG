@@ -576,4 +576,12 @@
     <string name="sub_info_traffic" translatable="false">%1$s / %2$s</string>
     <string name="sub_info_unlimited">Unlimited</string>
 
+    <string name="home_no_profiles">No profiles yet</string>
+    <string name="home_import_hint">Add a subscription or import a configuration.</string>
+    <string name="home_service_running">Service running</string>
+    <string name="home_import_text">Import text</string>
+    <string name="home_add_and_update">Add and update</string>
+    <string name="home_import_options">More import options</string>
+    <string name="home_move_up">Move up</string>
+    <string name="home_move_down">Move down</string>
 </resources>

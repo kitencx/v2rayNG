@@ -583,4 +583,12 @@
     <string name="sub_info_open_page">فتح صفحة معلومات الاشتراك</string>
     <string name="sub_info_unlimited">غير محدود</string>
 
+    <string name="home_no_profiles">لا توجد ملفات تعريف بعد</string>
+    <string name="home_import_hint">أضف اشتراكًا أو استورد إعدادًا.</string>
+    <string name="home_service_running">الخدمة قيد التشغيل</string>
+    <string name="home_import_text">استيراد نص</string>
+    <string name="home_add_and_update">إضافة وتحديث</string>
+    <string name="home_import_options">خيارات استيراد أخرى</string>
+    <string name="home_move_up">نقل لأعلى</string>
+    <string name="home_move_down">نقل لأسفل</string>
 </resources>

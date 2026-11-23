@@ -3,6 +3,7 @@ package com.v2ray.ang.ui.main
 import com.v2ray.ang.dto.ConnectionTestResult
 import com.v2ray.ang.dto.GroupMapItem
 import com.v2ray.ang.dto.LocateTarget
+import com.v2ray.ang.dto.entities.ProfileItem
 
 /** Locale-neutral state formatted only when it reaches the main UI. */
 sealed interface MainStatus {
@@ -20,6 +21,7 @@ data class MainUiState(
     val groups: List<GroupMapItem> = emptyList(),
     val selectedGroupId: String = "",
     val selectedGuid: String? = null,
+    val selectedProfile: ProfileItem? = null,
     val isRunning: Boolean = false,
     val isTesting: Boolean = false,
     val status: MainStatus = MainStatus.Disconnected,
@@ -56,6 +58,7 @@ sealed interface MainAction {
     data object LocateSelectedServer : MainAction
 
     data class SelectGroup(val groupId: String) : MainAction
+    data class MoveServer(val groupId: String, val guid: String, val offset: Int) : MainAction
     data class SelectServer(val guid: String) : MainAction
     data class RemoveServer(val guid: String) : MainAction
     data class EditServer(val guid: String, val profile: com.v2ray.ang.dto.entities.ProfileItem) : MainAction
@@ -66,6 +69,7 @@ sealed interface MainAction {
     data object DismissQRCodeDialog : MainAction
     data class OpenSubscriptionLink(val url: String) : MainAction
 
+    data class ImportSubscriptionUrl(val url: String) : MainAction
     data class ImportBatchConfig(val configText: String) : MainAction
 
     data object LocateHandled : MainAction
