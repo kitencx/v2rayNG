@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -99,7 +98,6 @@ internal fun MainConnectionPanel(
                     Text(profileName, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 if (needsSelection) return@Column
-                HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.65f))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     MainControl(
                         label = stringResource(
@@ -107,23 +105,24 @@ internal fun MainConnectionPanel(
                             else if (state.isRunning) R.string.acc_stop else R.string.acc_start
                         ),
                         onClick = if (waitingForConfig) onAddSubscription else ({ onAction(MainAction.ToggleService) }),
-                        modifier = actionModifier.weight(if (state.isRunning) 1.15f else 1f),
+                        modifier = actionModifier,
                         tv = tv,
                         emphasized = !state.isRunning,
                         enabled = state.isRunning || !isLoading,
-                        icon = if (waitingForConfig) R.drawable.ic_add_24dp else if (state.isRunning) {
+                        iconOnly = !waitingForConfig,
+                        icon = if (waitingForConfig) null else if (state.isRunning) {
                             R.drawable.ic_stop_24dp
                         } else {
-                            R.drawable.ic_qu_start_24dp
+                            R.drawable.ic_play_24dp
                         },
                     )
                     if (state.isRunning) {
                         MainControl(
                             label = stringResource(R.string.connection_test_pending),
                             onClick = { onAction(MainAction.TestCurrentServer) },
-                            modifier = Modifier.weight(1f),
                             tv = tv,
                             icon = R.drawable.ic_fab_check,
+                            iconOnly = true,
                         )
                     }
                 }

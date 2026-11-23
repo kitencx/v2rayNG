@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,6 +39,7 @@ internal fun MainControl(
     selected: Boolean? = null,
     enabled: Boolean = true,
     @DrawableRes icon: Int? = null,
+    iconOnly: Boolean = false,
 ) {
     var focused by remember { mutableStateOf(false) }
     val colors = MaterialTheme.colorScheme
@@ -57,19 +59,25 @@ internal fun MainControl(
     Row(
         modifier = modifier
             .heightIn(min = if (tv) 52.dp else 48.dp)
+            .widthIn(min = if (tv) 56.dp else 48.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(background)
             .onFocusChanged { focused = it.isFocused }
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .semantics { selected?.let { this.selected = it } }
             .padding(horizontal = if (tv) 15.dp else 12.dp, vertical = 9.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = if (iconOnly) Arrangement.Center else Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) {
-            Icon(painterResource(icon), contentDescription = null, tint = foreground, modifier = Modifier.size(20.dp))
+            Icon(
+                painterResource(icon),
+                contentDescription = label.takeIf { iconOnly },
+                tint = foreground,
+                modifier = Modifier.size(if (tv) 24.dp else 20.dp),
+            )
         }
-        Text(
+        if (!iconOnly) Text(
             label,
             color = foreground,
             style = if (tv) MaterialTheme.typography.titleMedium else MaterialTheme.typography.labelLarge,

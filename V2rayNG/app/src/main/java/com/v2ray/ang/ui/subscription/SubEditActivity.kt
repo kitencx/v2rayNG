@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -30,6 +31,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.activity.viewModels
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -49,6 +51,7 @@ import com.v2ray.ang.ui.compose.NavigationBarsSpacer
 import com.v2ray.ang.ui.compose.ServerSelectListDialog
 import com.v2ray.ang.ui.compose.SettingsSwitchItem
 import com.v2ray.ang.ui.compose.verticalScrollbar
+import com.v2ray.ang.ui.main.MainControl
 import com.v2ray.ang.util.Utils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -137,34 +140,25 @@ fun SubEditScreen(
         return subItem
     }
 
-    Scaffold(
-        contentWindowInsets = WindowInsets(0),
-        topBar = {
-            AppTopBar(
-                title = stringResource(R.string.title_sub_setting),
-                onBackClick = onBackClick,
-                actions = {
-                    if (editSubId.isNotEmpty() && !embedded) {
-                        IconButton(onClick = {
-                            if (confirmRemove) showDeleteConfirm = true else onDelete()
-                        }) {
-                            Icon(painterResource(R.drawable.ic_delete_24dp), contentDescription = stringResource(R.string.acc_delete))
-                        }
-                    }
-                }
-            )
-        }
-    ) { innerPadding ->
+    val save = {
+        val remarksErr = remarks.isBlank()
+        val urlErr = url.isNotEmpty() &&
+            (!Utils.isValidUrl(url) || (!Utils.isValidSubUrl(url) && !allowInsecureUrl))
+        val intervalErr = autoUpdate && updateInterval.toLongEx() < AppConfig.SUBSCRIPTION_MIN_INTERVAL_MINUTES
+        isRemarksError = remarksErr
+        isUrlError = urlErr
+        isUpdateIntervalError = intervalErr
+        if (!remarksErr && !urlErr && !intervalErr) onSave(buildSubItem())
+    }
+
+    val form: @Composable (Modifier) -> Unit = { modifier ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .consumeWindowInsets(innerPadding)
+            modifier
+                .fillMaxWidth()
                 .imePadding()
                 .verticalScroll(scrollState)
                 .verticalScrollbar(scrollState)
-                .padding(vertical = 8.dp)
-                .padding(bottom = 36.dp)
+                .padding(vertical = 8.dp),
         ) {
             FormTextField(
                 label = stringResource(R.string.sub_setting_remarks),
@@ -224,22 +218,63 @@ fun SubEditScreen(
                 onClear = { nextProfile = "" },
                 supportingText = stringResource(R.string.sub_setting_exit_proxy_tip)
             )
-            Button(
-                onClick = {
-                    val remarksErr = remarks.isBlank()
-                    val urlErr = url.isNotEmpty() &&
-                        (!Utils.isValidUrl(url) || (!Utils.isValidSubUrl(url) && !allowInsecureUrl))
-                    val intervalErr = autoUpdate && updateInterval.toLongEx() < AppConfig.SUBSCRIPTION_MIN_INTERVAL_MINUTES
-                    isRemarksError = remarksErr
-                    isUrlError = urlErr
-                    isUpdateIntervalError = intervalErr
-                    if (!remarksErr && !urlErr && !intervalErr) onSave(buildSubItem())
-                },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            ) {
-                Text(stringResource(R.string.acc_save))
+            if (!embedded) {
+                Button(
+                    onClick = save,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                ) {
+                    Text(stringResource(R.string.acc_save))
+                }
+                NavigationBarsSpacer()
             }
-            NavigationBarsSpacer()
+        }
+    }
+
+    if (embedded) {
+        Column(Modifier.fillMaxSize()) {
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(horizontal = 16.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = initial.remarks.ifBlank { stringResource(R.string.acc_add_subscription) },
+                    style = MaterialTheme.typography.titleLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                MainControl(
+                    label = stringResource(R.string.acc_save),
+                    onClick = save,
+                    icon = R.drawable.ic_fab_check,
+                    iconOnly = true,
+                    emphasized = true,
+                    tv = true,
+                )
+            }
+            form(Modifier.weight(1f))
+        }
+    } else {
+        Scaffold(
+            contentWindowInsets = WindowInsets(0),
+            topBar = {
+                AppTopBar(
+                    title = stringResource(R.string.title_sub_setting),
+                    onBackClick = onBackClick,
+                    actions = {
+                        if (editSubId.isNotEmpty()) {
+                            IconButton(onClick = {
+                                if (confirmRemove) showDeleteConfirm = true else onDelete()
+                            }) {
+                                Icon(painterResource(R.drawable.ic_delete_24dp), contentDescription = stringResource(R.string.acc_delete))
+                            }
+                        }
+                    },
+                )
+            },
+        ) { innerPadding ->
+            form(Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding))
         }
     }
 

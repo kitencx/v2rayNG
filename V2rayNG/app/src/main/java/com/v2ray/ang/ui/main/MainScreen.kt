@@ -382,21 +382,23 @@ fun MainScreen(
                                         overflow = TextOverflow.Ellipsis,
                                     )
                                 }
-                                if (!tv) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    if (!tv) {
+                                        MainControl(
+                                            label = stringResource(R.string.action_edit),
+                                            onClick = { onAction(MainAction.EditServer(guid, profile)) },
+                                            icon = R.drawable.ic_edit_24dp,
+                                            iconOnly = true,
+                                        )
+                                    }
                                     MainControl(
-                                        label = stringResource(R.string.action_edit),
-                                        onClick = { onAction(MainAction.EditServer(guid, profile)) },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        icon = R.drawable.ic_edit_24dp,
+                                        label = stringResource(R.string.acc_more),
+                                        onClick = { shareTarget = Triple(guid, profile, true) },
+                                        tv = tv,
+                                        icon = R.drawable.ic_more_vert_24dp,
+                                        iconOnly = true,
                                     )
                                 }
-                                MainControl(
-                                    label = stringResource(R.string.acc_more),
-                                    onClick = { shareTarget = Triple(guid, profile, true) },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    tv = tv,
-                                    icon = R.drawable.ic_more_vert_24dp,
-                                )
                                 if (inspected != null && searchQuery.isEmpty() && uiState.selectedGroupId.isNotEmpty()) {
                                     val index = currentGroup.rows.indexOf(inspected)
                                     val groupId = uiState.selectedGroupId
@@ -458,10 +460,10 @@ private fun MainNavigation(
     if (onMenu != null) {
         Column(modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             MainControl(stringResource(R.string.title_server), onClick = onMenu, tv = tv, selected = true,
-                modifier = Modifier.fillMaxWidth(), icon = R.drawable.ic_menu_24dp)
+                modifier = Modifier.fillMaxWidth())
             destinations.forEach { destination ->
                 MainControl(stringResource(destination.labelRes), { onNavigate(destination) }, tv = tv,
-                    modifier = Modifier.fillMaxWidth(), icon = destination.iconRes)
+                    modifier = Modifier.fillMaxWidth())
             }
         }
     } else {
@@ -498,22 +500,22 @@ private fun MainImportShortcuts(
             MainControl(
                 stringResource(R.string.menu_item_import_config_qrcode),
                 { onAction(MainAction.ImportQRcode) },
-                Modifier.fillMaxWidth(), tv = tv, icon = R.drawable.ic_scan_24dp,
+                Modifier.fillMaxWidth(), tv = tv,
             )
         }
         MainControl(
             stringResource(R.string.menu_item_import_config_clipboard),
             { onAction(MainAction.ImportClipboard) },
-            Modifier.fillMaxWidth(), tv = tv, icon = R.drawable.ic_copy,
+            Modifier.fillMaxWidth(), tv = tv,
         )
         MainControl(
             stringResource(R.string.menu_item_import_config_local),
             { onAction(MainAction.ImportConfigLocal) },
-            Modifier.fillMaxWidth(), tv = tv, icon = R.drawable.ic_file_24dp,
+            Modifier.fillMaxWidth(), tv = tv,
         )
         MainControl(
             stringResource(R.string.home_import_text), onImportText,
-            Modifier.fillMaxWidth(), tv = tv, icon = R.drawable.ic_edit_24dp,
+            Modifier.fillMaxWidth(), tv = tv,
         )
     }
 }

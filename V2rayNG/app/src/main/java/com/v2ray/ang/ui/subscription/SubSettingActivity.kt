@@ -1,20 +1,20 @@
 package com.v2ray.ang.ui.subscription
 
 import android.content.Intent
-import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.compose.BackHandler
 import androidx.activity.viewModels
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,7 +23,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -33,6 +36,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -42,10 +46,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -59,8 +65,6 @@ import com.v2ray.ang.handler.MmkvManager.rememberMmkvBool
 import com.v2ray.ang.ui.base.BaseComponentActivity
 import com.v2ray.ang.ui.compose.AppTopBar
 import com.v2ray.ang.ui.compose.DeleteConfirmDialog
-import com.v2ray.ang.ui.compose.ItemDivider
-import com.v2ray.ang.ui.compose.NavigationBarsBottomPadding
 import com.v2ray.ang.ui.compose.QRCodeDialog
 import com.v2ray.ang.ui.compose.ReorderableListItem
 import com.v2ray.ang.ui.compose.SelectListDialog
@@ -100,10 +104,9 @@ class SubSettingActivity : BaseComponentActivity() {
             if (id != null) editorState.removeState(id)
             editorId = null
         }
-        val uiMode = LocalConfiguration.current.uiMode and Configuration.UI_MODE_TYPE_MASK
 
         BoxWithConstraints(Modifier.fillMaxSize()) {
-            val wide = uiMode != Configuration.UI_MODE_TYPE_TELEVISION && maxWidth >= 680.dp && maxWidth > maxHeight
+            val wide = maxWidth >= 680.dp && maxWidth > maxHeight
             BackHandler(id != null) { closeEditor() }
             val editor: @Composable () -> Unit = {
                 if (id != null && item != null) {
@@ -119,12 +122,8 @@ class SubSettingActivity : BaseComponentActivity() {
                                 }
                             },
                             onDelete = {},
-                            embedded = true,
+                            embedded = wide,
                         )
-                    }
-                } else {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(stringResource(R.string.title_sub_setting), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -132,37 +131,30 @@ class SubSettingActivity : BaseComponentActivity() {
                 editor()
                 return@BoxWithConstraints
             }
-            Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(if (wide) 16.dp else 0.dp)) {
-                Box(Modifier.weight(1f).fillMaxHeight()) {
-                    SubSettingScreen(
-                        viewModel = viewModel,
-                        isLoading = isLoading,
-                        onBackClick = { finish() },
-                        onAddClick = {
-                            if (wide) editorId = "" else startActivity(Intent(this@SubSettingActivity, SubEditActivity::class.java))
-                        },
-                        onSubUpdate = { viewModel.updateSubscriptions() },
-                        onEditSub = { id ->
-                            if (wide) editorId = id
-                            else startActivity(Intent(this@SubSettingActivity, SubEditActivity::class.java).putExtra("subId", id))
-                        },
-                        onRemoveSub = { subId -> removeSub(subId) },
-                        onShareQRCode = viewModel::shareQRCode,
-                        onShareClipboard = { url ->
-                            Utils.setClipboard(this@SubSettingActivity, url)
-                            toast(getString(R.string.toast_success))
-                        },
-                        editorId = editorId.takeIf { wide },
-                    )
-                }
-                if (wide) {
-                    Surface(
-                        modifier = Modifier.weight(1.1f).fillMaxHeight().padding(end = 16.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainer,
-                        content = editor,
-                    )
-                }
-            }
+            SubSettingScreen(
+                viewModel = viewModel,
+                isLoading = isLoading,
+                onBackClick = { if (id != null) closeEditor() else finish() },
+                onAddClick = {
+                    if (wide) editorId = "" else startActivity(Intent(this@SubSettingActivity, SubEditActivity::class.java))
+                },
+                onSubUpdate = { viewModel.updateSubscriptions() },
+                onEditSub = { groupId ->
+                    if (wide) editorId = groupId
+                    else startActivity(Intent(this@SubSettingActivity, SubEditActivity::class.java).putExtra("subId", groupId))
+                },
+                onRemoveSub = { subId ->
+                    removeSub(subId)
+                    if (id == subId) closeEditor()
+                },
+                onShareQRCode = viewModel::shareQRCode,
+                onShareClipboard = { url ->
+                    Utils.setClipboard(this@SubSettingActivity, url)
+                    toast(getString(R.string.toast_success))
+                },
+                editorId = editorId.takeIf { wide },
+                editor = editor.takeIf { wide && id != null && item != null },
+            )
         }
     }
 
@@ -188,6 +180,7 @@ fun SubSettingScreen(
     onShareQRCode: (String) -> Unit,
     onShareClipboard: (String) -> Unit,
     editorId: String? = null,
+    editor: (@Composable () -> Unit)? = null,
 ) {
     val subscriptions by viewModel.subsFlow.collectAsStateWithLifecycle()
     var showUpdateDialog by remember { mutableStateOf(false) }
@@ -203,7 +196,6 @@ fun SubSettingScreen(
     }
 
     Scaffold(
-        contentWindowInsets = WindowInsets(0),
         topBar = {
             AppTopBar(
                 title = stringResource(R.string.title_sub_setting),
@@ -220,96 +212,46 @@ fun SubSettingScreen(
             )
         }
     ) { innerPadding ->
-        LazyColumn(
-            state = lazyListState,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScrollbar(lazyListState),
-            contentPadding = NavigationBarsBottomPadding()
+        Row(
+            Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            itemsIndexed(
-                items = subscriptions,
-                key = { _, item -> item.guid }
-            ) { _, subCache ->
-                ReorderableItem(reorderableState, key = subCache.guid) { isDragging ->
-                    ReorderableListItem(
-                        scope = this,
-                        isDragging = isDragging
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(
-                                    if (subCache.guid == editorId) MaterialTheme.colorScheme.primaryContainer
-                                    else MaterialTheme.colorScheme.surface,
-                                )
-                                .padding(horizontal = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(
-                                modifier = Modifier.weight(1f)
-                                    .selectable(subCache.guid == editorId, role = Role.Button, onClick = { onEditSub(subCache.guid) })
-                                    .padding(vertical = 12.dp),
-                            ) {
-                                Text(
-                                    text = subCache.subscription.remarks,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = Utils.formatTimestamp(subCache.subscription.lastUpdated),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-
-                            Column(
-                                horizontalAlignment = Alignment.End,
-                                modifier = Modifier.padding(start = 8.dp)
-                            ) {
-                                Row {
-                                    if (subCache.subscription.url.isNotEmpty()) {
-                                        IconButton(onClick = {
-                                            shareTarget = Pair(subCache.guid, subCache.subscription.url)
-                                        }) {
-                                            Icon(
-                                                painter = painterResource(R.drawable.ic_share_24dp),
-                                                contentDescription = stringResource(R.string.acc_share_subscription)
-                                            )
-                                        }
-                                    }
-                                    IconButton(onClick = {
-                                        if (confirmRemove) removeTarget = SubscriptionDeleteTarget(subCache.guid, subCache.subscription.remarks)
-                                        else onRemoveSub(subCache.guid)
-                                    }) {
-                                        Icon(
-                                            painter = painterResource(R.drawable.ic_delete_24dp),
-                                            contentDescription = stringResource(R.string.acc_delete)
-                                        )
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Switch(
-                                    checked = subCache.subscription.enabled,
-                                    onCheckedChange = { checked ->
-                                        val updated = subCache.subscription.copy()
-                                        updated.enabled = checked
-                                        viewModel.update(subCache.guid, updated)
-                                    },
-                                    modifier = Modifier.scale(0.7f),
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = MaterialTheme.colorScheme.onSecondary,
-                                        checkedTrackColor = MaterialTheme.colorScheme.secondary
-                                    )
-                                )
-                            }
+            LazyColumn(
+                state = lazyListState,
+                modifier = Modifier.weight(1f).fillMaxHeight().verticalScrollbar(lazyListState),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                itemsIndexed(items = subscriptions, key = { _, item -> item.guid }) { _, subCache ->
+                    ReorderableItem(reorderableState, key = subCache.guid) { isDragging ->
+                        ReorderableListItem(scope = this, isDragging = isDragging) {
+                            SubscriptionGroupRow(
+                                name = subCache.subscription.remarks,
+                                lastUpdated = subCache.subscription.lastUpdated,
+                                enabled = subCache.subscription.enabled,
+                                selected = subCache.guid == editorId,
+                                onOpen = { onEditSub(subCache.guid) },
+                                onToggle = { viewModel.update(subCache.guid, subCache.subscription.copy(enabled = it)) },
+                                onShare = if (subCache.subscription.url.isNotEmpty()) {
+                                    { shareTarget = Pair(subCache.guid, subCache.subscription.url) }
+                                } else null,
+                                onDelete = {
+                                    if (confirmRemove) removeTarget = SubscriptionDeleteTarget(subCache.guid, subCache.subscription.remarks)
+                                    else onRemoveSub(subCache.guid)
+                                },
+                            )
                         }
                     }
-                    ItemDivider()
                 }
+            }
+            if (editor != null) {
+                VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Surface(
+                    modifier = Modifier.weight(1.65f).fillMaxHeight(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    content = editor,
+                )
             }
         }
     }
@@ -402,5 +344,70 @@ fun SubSettingScreen(
                 }
             }
         )
+    }
+}
+
+
+@Composable
+private fun SubscriptionGroupRow(
+    name: String,
+    lastUpdated: Long,
+    enabled: Boolean,
+    selected: Boolean,
+    onOpen: () -> Unit,
+    onToggle: (Boolean) -> Unit,
+    onShare: (() -> Unit)?,
+    onDelete: () -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(12.dp)
+    val colors = MaterialTheme.colorScheme
+    val switchLabel = stringResource(R.string.sub_setting_enable)
+    Row(
+        Modifier.fillMaxWidth().clip(shape)
+            .background(if (selected) colors.primaryContainer else colors.surfaceContainerLow)
+            .padding(start = 8.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(
+            Modifier.weight(1f).clip(shape)
+                .onFocusChanged { focused = it.isFocused }
+                .then(if (focused) Modifier.border(2.dp, colors.primary, shape) else Modifier)
+                .selectable(selected, role = Role.Button, onClick = onOpen)
+                .padding(horizontal = 8.dp, vertical = 12.dp),
+        ) {
+            Text(name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (lastUpdated > 0) {
+                Spacer(Modifier.height(2.dp))
+                Text(Utils.formatTimestamp(lastUpdated), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+            }
+        }
+        Switch(
+            checked = enabled,
+            onCheckedChange = onToggle,
+            modifier = Modifier.semantics { contentDescription = switchLabel },
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = colors.onSecondary,
+                checkedTrackColor = colors.secondary,
+            ),
+        )
+        Box {
+            IconButton(onClick = { showMenu = true }) {
+                Icon(painterResource(R.drawable.ic_more_vert_24dp), stringResource(R.string.acc_more))
+            }
+            DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                if (onShare != null) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.acc_share_subscription)) },
+                        onClick = { showMenu = false; onShare() },
+                    )
+                }
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.acc_delete)) },
+                    onClick = { showMenu = false; onDelete() },
+                )
+            }
+        }
     }
 }
