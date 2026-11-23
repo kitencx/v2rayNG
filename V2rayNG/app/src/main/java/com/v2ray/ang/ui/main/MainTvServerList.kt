@@ -46,6 +46,8 @@ internal fun MainTvServerList(
         val shouldRestore = listHasFocus && previouslyFocused != null && previouslyFocused !in rowIds
         val next = target ?: if (shouldRestore) {
             tvFocusAfterRemoval(previousOrder, rowIds, previouslyFocused)
+        } else if (previousOrder.isEmpty() && selectedGuid.isNullOrBlank()) {
+            rowIds.firstOrNull()
         } else null
         previousOrder = rowIds
         if (next != null) {

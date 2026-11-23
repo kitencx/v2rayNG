@@ -37,16 +37,20 @@ internal fun MainConnectionPanel(
     profile: ProfileItem?,
     displayText: String,
     isLoading: Boolean,
+    hasVisibleProfiles: Boolean,
     tv: Boolean,
     onAction: (MainAction) -> Unit,
     onAddSubscription: () -> Unit,
     actionModifier: Modifier = Modifier,
 ) {
     val colors = MaterialTheme.colorScheme
-    val waitingForConfig = !state.isRunning && !isLoading && state.selectedGuid.isNullOrBlank()
+    val needsConfig = !state.isRunning && !isLoading && state.selectedGuid.isNullOrBlank()
+    val needsSelection = needsConfig && hasVisibleProfiles
+    val waitingForConfig = needsConfig && !hasVisibleProfiles
     val profileName = profile?.remarks.orEmpty()
     val title = when {
         waitingForConfig -> stringResource(R.string.home_no_profiles)
+        needsSelection -> stringResource(R.string.title_file_chooser)
         state.isRunning -> profileName.takeIf(String::isNotBlank)
             ?: stringResource(R.string.home_service_running)
         else -> stringResource(R.string.connection_not_connected)
@@ -94,6 +98,7 @@ internal fun MainConnectionPanel(
                 if (!state.isRunning && !waitingForConfig && profileName.isNotBlank()) {
                     Text(profileName, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
+                if (needsSelection) return@Column
                 HorizontalDivider(color = colors.outlineVariant.copy(alpha = 0.65f))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     MainControl(

@@ -245,8 +245,9 @@ fun MainScreen(
                 val horizontalPadding = if (tv) 24.dp else 16.dp
                 val actionFocus = remember { FocusRequester() }
                 var initialFocusSet by remember { mutableStateOf(false) }
-                LaunchedEffect(tv, isLoading) {
-                    if (tv && !isLoading && !initialFocusSet) {
+                val waitingForNodeSelection = selectedGuid.isNullOrBlank() && currentGroup.rows.isNotEmpty()
+                LaunchedEffect(tv, isLoading, waitingForNodeSelection) {
+                    if (tv && !isLoading && !initialFocusSet && !waitingForNodeSelection) {
                         if (actionFocus.requestFocus()) initialFocusSet = true
                     }
                 }
@@ -257,6 +258,7 @@ fun MainScreen(
                         profile = uiState.selectedProfile,
                         displayText = displayText,
                         isLoading = isLoading,
+                        hasVisibleProfiles = currentGroup.rows.isNotEmpty(),
                         tv = tv,
                         onAction = onAction,
                         onAddSubscription = {
