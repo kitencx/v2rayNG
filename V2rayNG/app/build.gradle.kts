@@ -73,7 +73,10 @@ android {
 
     sourceSets {
         if (customPackage) {
-            getByName("playstore").res.srcDir("src/custom/res")
+            getByName("playstore") {
+                manifest.srcFile("src/custom/AndroidManifest.xml")
+                res.srcDir("src/custom/res")
+            }
         }
         getByName("main") {
             jniLibs.srcDirs("libs")
