@@ -8,15 +8,18 @@ import com.v2ray.ang.R
 import com.v2ray.ang.dto.SubscriptionUpdateMessage
 import com.v2ray.ang.dto.entities.SubscriptionCache
 import com.v2ray.ang.dto.entities.SubscriptionItem
+import com.v2ray.ang.enums.EConfigType
 import com.v2ray.ang.extension.moveItem
 import com.v2ray.ang.handler.AngConfigManager
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.handler.SettingsChangeManager
 import com.v2ray.ang.handler.SettingsManager
+import com.v2ray.ang.handler.SubscriptionUpdater
 import com.v2ray.ang.helper.MessageHelper
 import com.v2ray.ang.ui.base.BaseViewModel
 import com.v2ray.ang.util.LogUtil
 import com.v2ray.ang.util.QRCodeDecoder
+import com.v2ray.ang.util.Utils
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -35,6 +38,58 @@ class SubscriptionsViewModel(application: Application) : BaseViewModel(applicati
 
     private val _subsFlow = MutableStateFlow(subscriptions.toList())
     val subsFlow: StateFlow<List<SubscriptionCache>> = _subsFlow.asStateFlow()
+
+    private val _profileSuggestions = MutableStateFlow<List<String>>(emptyList())
+    internal val profileSuggestions = _profileSuggestions.asStateFlow()
+    private var editorSaveJob: Job? = null
+
+    internal fun refreshProfileSuggestions() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _profileSuggestions.value = SettingsManager.getProfileRemarks(
+                excludeConfigTypes = setOf(
+                    EConfigType.CUSTOM, EConfigType.CUSTOM_OUTBOUND,
+                    EConfigType.POLICYGROUP, EConfigType.PROXYCHAIN,
+                ),
+            )
+        }
+    }
+
+    internal fun saveFromEditor(subId: String, item: SubscriptionItem, onSaved: () -> Unit) {
+        if (editorSaveJob?.isActive == true) return
+        editorSaveJob = viewModelScope.launch {
+            try {
+                val profiles = withContext(Dispatchers.IO) {
+                    // Keep usage metadata that may have been updated while the editor was open.
+                    val current = MmkvManager.decodeSubscription(subId)
+                    if (subId.isNotEmpty() && current == null) return@withContext null
+                    val updated = if (current == null) item else item.copy(
+                        lastUpdated = current.lastUpdated,
+                        usageInfo = current.usageInfo,
+                    )
+                    val id = subId.ifEmpty { Utils.getUuid() }
+                    MmkvManager.encodeSubscription(id, updated)
+                    SubscriptionUpdater.syncOne(subId = id)
+                    SettingsChangeManager.makeSetupGroupTab()
+                    MmkvManager.decodeSubscriptions()
+                }
+                if (profiles == null) {
+                    reload()
+                    toastError(R.string.toast_none_data)
+                    return@launch
+                }
+                subscriptions.clear()
+                subscriptions.addAll(profiles)
+                _subsFlow.value = subscriptions.toList()
+                toastSuccess(R.string.toast_success)
+                onSaved()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                LogUtil.e(AppConfig.TAG, "Failed to save subscription", error)
+                toastError(R.string.toast_failure)
+            }
+        }
+    }
 
     fun getAll(): List<SubscriptionCache> = subscriptions.toList()
 

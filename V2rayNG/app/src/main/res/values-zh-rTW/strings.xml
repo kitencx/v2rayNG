@@ -573,4 +573,12 @@
     <string name="sub_info_open_page">開啟訂閱資訊頁面</string>
     <string name="sub_info_unlimited">無限制</string>
 
+    <string name="home_no_profiles">還沒有節點</string>
+    <string name="home_import_hint">新增訂閱或匯入設定。</string>
+    <string name="home_service_running">服務已連線</string>
+    <string name="home_import_text">輸入設定文字</string>
+    <string name="home_add_and_update">新增並更新</string>
+    <string name="home_import_options">其他匯入方式</string>
+    <string name="home_move_up">上移</string>
+    <string name="home_move_down">下移</string>
 </resources>

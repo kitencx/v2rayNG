@@ -15,6 +15,9 @@ import kotlinx.coroutines.withContext
 
 object UpdateCheckerManager {
     suspend fun checkForUpdate(includePreRelease: Boolean = false): CheckUpdateResult = withContext(Dispatchers.IO) {
+        // Upstream APKs have a different application ID and cannot update the custom build.
+        if (BuildConfig.CUSTOM_PACKAGE) return@withContext CheckUpdateResult(hasUpdate = false)
+
         val url = if (includePreRelease) {
             AppConfig.APP_API_URL
         } else {

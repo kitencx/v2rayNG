@@ -579,4 +579,12 @@
     <string name="sub_info_open_page">Открыть страницу подписки</string>
     <string name="sub_info_unlimited">Без ограничений</string>
 
+    <string name="home_no_profiles">Профилей пока нет</string>
+    <string name="home_import_hint">Добавьте подписку или импортируйте конфигурацию.</string>
+    <string name="home_service_running">Служба запущена</string>
+    <string name="home_import_text">Импорт текста</string>
+    <string name="home_add_and_update">Добавить и обновить</string>
+    <string name="home_import_options">Другие способы импорта</string>
+    <string name="home_move_up">Переместить вверх</string>
+    <string name="home_move_down">Переместить вниз</string>
 </resources>

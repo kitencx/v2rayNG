@@ -575,4 +575,12 @@
     <string name="sub_info_open_page">واز کردن صفحه اطلاعات اشتراک</string>
     <string name="sub_info_unlimited">بی‌حد</string>
 
+    <string name="home_no_profiles">هَنو پیکربندی نی</string>
+    <string name="home_import_hint">اشتراک اضافه کُن یا پیکربندی وارد کُن.</string>
+    <string name="home_service_running">سرویس داره کار ایکُنه</string>
+    <string name="home_import_text">وارد کردن متن</string>
+    <string name="home_add_and_update">اضافه کردن و به‌روز کردن</string>
+    <string name="home_import_options">راه‌های دیگه ورودی</string>
+    <string name="home_move_up">ببر بالا</string>
+    <string name="home_move_down">ببر پایین</string>
 </resources>

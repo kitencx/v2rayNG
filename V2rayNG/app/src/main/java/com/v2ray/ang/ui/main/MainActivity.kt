@@ -1,6 +1,7 @@
 package com.v2ray.ang.ui.main
 
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
@@ -9,6 +10,8 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.lifecycle.lifecycleScope
 import com.v2ray.ang.AngApplication
 import com.v2ray.ang.AppConfig
@@ -53,6 +56,8 @@ import com.v2ray.ang.util.Utils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+private data class MainDeviceFeatures(val hasLeanback: Boolean = false, val hasCamera: Boolean = false)
 
 class MainActivity : HelperBaseComponentActivity() {
 
@@ -101,9 +106,19 @@ class MainActivity : HelperBaseComponentActivity() {
 
     @Composable
     override fun ScreenContent() {
+        val deviceFeatures by produceState(MainDeviceFeatures()) {
+            value = withContext(Dispatchers.IO) {
+                MainDeviceFeatures(
+                    hasLeanback = packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK),
+                    hasCamera = packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY),
+                )
+            }
+        }
         BackHandler { moveTaskToBack(false) }
         MainScreen(
             mainViewModel = mainViewModel,
+            hasLeanback = deviceFeatures.hasLeanback,
+            hasCamera = deviceFeatures.hasCamera,
             onAction = { action ->
                 when (action) {
                     MainAction.ToggleService -> handleFabAction()

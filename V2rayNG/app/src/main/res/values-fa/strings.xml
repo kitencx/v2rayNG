@@ -575,4 +575,12 @@
     <string name="sub_info_open_page">باز کردن صفحه اطلاعات اشتراک</string>
     <string name="sub_info_unlimited">نامحدود</string>
 
+    <string name="home_no_profiles">هنوز پیکربندی‌ای وجود ندارد</string>
+    <string name="home_import_hint">اشتراک اضافه کنید یا پیکربندی وارد کنید.</string>
+    <string name="home_service_running">سرویس در حال اجراست</string>
+    <string name="home_import_text">وارد کردن متن</string>
+    <string name="home_add_and_update">افزودن و به‌روزرسانی</string>
+    <string name="home_import_options">روش‌های دیگر ورود</string>
+    <string name="home_move_up">انتقال به بالا</string>
+    <string name="home_move_down">انتقال به پایین</string>
 </resources>

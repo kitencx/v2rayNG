@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -471,12 +472,6 @@ abstract class BaseServerActivity : BaseComponentActivity() {
                                 )
                             }
                         }
-                        IconButton(onClick = onSaveClick) {
-                            Icon(
-                                painterResource(R.drawable.ic_fab_check),
-                                stringResource(R.string.acc_save)
-                            )
-                        }
                     }
                 )
             }
@@ -493,6 +488,12 @@ abstract class BaseServerActivity : BaseComponentActivity() {
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 content()
+                Button(
+                    onClick = onSaveClick,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                ) {
+                    Text(stringResource(R.string.acc_save))
+                }
                 NavigationBarsSpacer()
             }
         }

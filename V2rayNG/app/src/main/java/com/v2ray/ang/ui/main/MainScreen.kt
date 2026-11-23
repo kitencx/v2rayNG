@@ -1,25 +1,40 @@
 package com.v2ray.ang.ui.main
 
+import android.content.res.Configuration
+import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScaffoldDefaults
+import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,15 +43,18 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.v2ray.ang.R
+import com.v2ray.ang.dto.GroupMapItem
 import com.v2ray.ang.dto.entities.ProfileItem
-import com.v2ray.ang.ui.compose.LocalDarkTheme
 import com.v2ray.ang.ui.compose.QRCodeDialog
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -44,20 +62,22 @@ import kotlinx.coroutines.launch
 @Composable
 fun MainScreen(
     mainViewModel: MainViewModel,
+    hasLeanback: Boolean,
+    hasCamera: Boolean,
     onAction: (MainAction) -> Unit,
     onNavigate: (MainDestination) -> Unit,
 ) {
     val uiState by mainViewModel.uiState.collectAsStateWithLifecycle()
     val groups = uiState.groups
     val isLoading by mainViewModel.isLoading.collectAsStateWithLifecycle()
-    val isRunning = uiState.isRunning
     val displayText = mainViewModel.formatStatus(uiState.status)
     val selectedGuid = uiState.selectedGuid
     val doubleColumnDisplay = uiState.doubleColumnDisplay
     val confirmRemove = uiState.confirmRemove
     val shareQRCodeBitmap = uiState.shareQRCodeBitmap
 
-    val isDarkTheme = LocalDarkTheme.current
+    val uiMode = LocalConfiguration.current.uiMode and Configuration.UI_MODE_TYPE_MASK
+    val tv = hasLeanback || uiMode == Configuration.UI_MODE_TYPE_TELEVISION
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     var showSearch by remember { mutableStateOf(false) }
@@ -79,7 +99,7 @@ fun MainScreen(
     }
 
     val pagerState = rememberPagerState(
-        initialPage = 0,
+        initialPage = groups.indexOfFirst { it.id == uiState.selectedGroupId }.coerceAtLeast(0),
         pageCount = { groups.size.coerceAtLeast(1) }
     )
 
@@ -92,8 +112,8 @@ fun MainScreen(
         lazyGridStates.keys.retainAll(validGroupIds)
     }
 
-    LaunchedEffect(groups, uiState.selectedGroupId) {
-        if (groups.isEmpty()) return@LaunchedEffect
+    LaunchedEffect(tv, groups, uiState.selectedGroupId) {
+        if (tv || groups.isEmpty()) return@LaunchedEffect
         val selectedIndex = groups.indexOfFirst { it.id == uiState.selectedGroupId }
             .takeIf { it >= 0 } ?: 0
         if (!pagerState.isScrollInProgress && pagerState.settledPage != selectedIndex) {
@@ -102,10 +122,16 @@ fun MainScreen(
     }
 
     val latestGroups by rememberUpdatedState(groups)
-    // Height of the floating connection bar, so the server lists can scroll clear of it.
-    var bottomBarHeightPx by remember { mutableIntStateOf(0) }
+    var showImportDialog by rememberSaveable { mutableStateOf(false) }
+    var importSubscription by rememberSaveable { mutableStateOf(true) }
+    var inspectedGuid by rememberSaveable(uiState.selectedGroupId) { mutableStateOf<String?>(null) }
+    val currentGroupFlow = remember(mainViewModel, uiState.selectedGroupId) {
+        mainViewModel.serverGroupState(uiState.selectedGroupId)
+    }
+    val currentGroup by currentGroupFlow.collectAsStateWithLifecycle()
 
-    LaunchedEffect(pagerState) {
+    LaunchedEffect(pagerState, tv) {
+        if (tv) return@LaunchedEffect
         snapshotFlow { pagerState.settledPage }
             .distinctUntilChanged()
             .collect { page ->
@@ -146,7 +172,16 @@ fun MainScreen(
         QRCodeDialog(bitmap = shareQRCodeBitmap, onDismiss = { onAction(MainAction.DismissQRCodeDialog) })
     }
 
+    if (showImportDialog) {
+        MainImportDialog(
+            isSubscription = importSubscription,
+            onDismiss = { showImportDialog = false },
+            onAction = onAction,
+        )
+    }
+
     ModalNavigationDrawer(
+        gesturesEnabled = !tv,
         drawerState = drawerState,
         drawerContent = {
             MainDrawerContent(
@@ -163,6 +198,15 @@ fun MainScreen(
             topBar = {
                 MainTopBar(
                     isLoading = isLoading,
+                    hasCamera = hasCamera,
+                    onAddSubscription = {
+                        importSubscription = true
+                        showImportDialog = true
+                    },
+                    onImportText = {
+                        importSubscription = false
+                        showImportDialog = true
+                    },
                     showSearch = showSearch,
                     searchQuery = searchQuery,
                     onSearchQueryChange = { query: String ->
@@ -193,89 +237,285 @@ fun MainScreen(
                     }
                 )
             },
-            floatingActionButton = {},
         ) { innerPadding ->
-            val layoutDirection = LocalLayoutDirection.current
-            val bottomBarHeight = with(LocalDensity.current) { bottomBarHeightPx.toDp() }
+            BoxWithConstraints(
+                Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding),
+            ) {
+                val wide = tv || maxWidth >= 680.dp && maxWidth > maxHeight
+                val horizontalPadding = if (tv) 24.dp else 16.dp
+                val actionFocus = remember { FocusRequester() }
+                var initialFocusSet by remember { mutableStateOf(false) }
+                val waitingForNodeSelection = selectedGuid.isNullOrBlank() && currentGroup.rows.isNotEmpty()
+                LaunchedEffect(tv, isLoading, waitingForNodeSelection) {
+                    if (tv && !isLoading && !initialFocusSet && !waitingForNodeSelection) {
+                        if (actionFocus.requestFocus()) initialFocusSet = true
+                    }
+                }
 
-            Box(Modifier.fillMaxSize()) {
-            if (groups.isNotEmpty()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        // No bottom padding: the lists run behind the floating connection bar.
-                        .padding(
-                            start = innerPadding.calculateStartPadding(layoutDirection),
-                            top = innerPadding.calculateTopPadding(),
-                            end = innerPadding.calculateEndPadding(layoutDirection)
+                val connection: @Composable () -> Unit = {
+                    MainConnectionPanel(
+                        state = uiState,
+                        profile = uiState.selectedProfile,
+                        displayText = displayText,
+                        isLoading = isLoading,
+                        hasVisibleProfiles = currentGroup.rows.isNotEmpty(),
+                        tv = tv,
+                        onAction = onAction,
+                        onAddSubscription = {
+                            importSubscription = true
+                            showImportDialog = true
+                        },
+                        actionModifier = if (tv) Modifier.focusRequester(actionFocus) else Modifier,
+                    )
+                }
+                val serverPage: @Composable (GroupMapItem) -> Unit = { group ->
+                    GroupPagerPage(
+                        groupId = group.id,
+                        mainViewModel = mainViewModel,
+                        selectedGuid = selectedGuid,
+                        locateTarget = uiState.locateTarget,
+                        doubleColumnDisplay = doubleColumnDisplay,
+                        searchQuery = searchQuery,
+                        lazyListStates = lazyListStates,
+                        lazyGridStates = lazyGridStates,
+                        onSelectServer = { onAction(MainAction.SelectServer(it)) },
+                        onMoreServer = { guid, profile -> shareTarget = Triple(guid, profile, true) },
+                        usageInfo = group.usageInfo,
+                        groupTitle = group.remarks,
+                        onOpenLink = { onAction(MainAction.OpenSubscriptionLink(it)) },
+                        contentPadding = PaddingValues(bottom = 8.dp),
+                        tv = tv,
+                        listFocusFallback = actionFocus,
+                        onTvFocus = { inspectedGuid = it },
+                    )
+                }
+                val showImportShortcuts = !isLoading && selectedGuid.isNullOrBlank() && currentGroup.rows.isEmpty() &&
+                    searchQuery.isEmpty()
+                val profiles: @Composable () -> Unit = {
+                    Column(Modifier.fillMaxSize()) {
+                        Text(
+                            stringResource(R.string.title_server),
+                            style = MaterialTheme.typography.headlineSmall,
+                            modifier = Modifier.padding(vertical = 8.dp),
                         )
-                ) {
-                    if (groups.size > 1) {
-                        GroupTabBar(
-                            groups = groups,
-                            selectedTabIndex = pagerState.currentPage.coerceIn(0, groups.lastIndex),
-                            mainViewModel = mainViewModel,
-                            onTabClick = { targetIndex ->
-                                scope.launch {
-                                    pagerState.navigateToPageOptimized(
-                                        targetPage = targetIndex,
-                                        animateAdjacentPage = true
+                        if (groups.size > 1) {
+                            if (tv) {
+                                Row(
+                                    Modifier.horizontalScroll(rememberScrollState()).focusGroup()
+                                        .padding(bottom = 8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    groups.forEach { group ->
+                                        key(group.id) {
+                                            MainControl(
+                                                label = group.remarks,
+                                                onClick = { onAction(MainAction.SelectGroup(group.id)) },
+                                                tv = true,
+                                                selected = group.id == uiState.selectedGroupId,
+                                            )
+                                        }
+                                    }
+                                }
+                            } else {
+                                GroupTabBar(
+                                    groups = groups,
+                                    selectedTabIndex = pagerState.currentPage.coerceIn(groups.indices),
+                                    mainViewModel = mainViewModel,
+                                    onTabClick = { target ->
+                                        scope.launch { pagerState.navigateToPageOptimized(target, true) }
+                                    },
+                                )
+                            }
+                        }
+                        if (showImportShortcuts && !wide) {
+                            MainImportShortcuts(
+                                tv = false,
+                                hasCamera = hasCamera,
+                                onAction = onAction,
+                                onImportText = {
+                                    importSubscription = false
+                                    showImportDialog = true
+                                },
+                                modifier = Modifier.verticalScroll(rememberScrollState()),
+                            )
+                        } else if (tv) {
+                            groups.firstOrNull { it.id == uiState.selectedGroupId }?.let { group ->
+                                key(group.id) { serverPage(group) }
+                            }
+                        } else if (groups.isNotEmpty()) {
+                            HorizontalPager(
+                                state = pagerState,
+                                modifier = Modifier.fillMaxSize(),
+                                beyondViewportPageCount = 1,
+                                key = { page -> groups.getOrNull(page)?.id ?: "group-page-$page" },
+                            ) { page ->
+                                groups.getOrNull(page)?.let { serverPage(it) }
+                            }
+                        }
+                    }
+                }
+
+                if (wide) {
+                    Row(
+                        Modifier.fillMaxSize().padding(horizontal = horizontalPadding, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(if (tv) 20.dp else 16.dp),
+                    ) {
+                        MainNavigation(tv, onNavigate, Modifier.width(if (tv) 140.dp else 124.dp), onMenu = {
+                            scope.launch { drawerState.open() }
+                        })
+                        Box(Modifier.weight(1f).fillMaxHeight()) { profiles() }
+                        Column(
+                            Modifier.weight(1f).fillMaxHeight()
+                                .verticalScroll(rememberScrollState()).padding(bottom = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            connection()
+                            val inspected = if (tv) currentGroup.rows.firstOrNull { it.guid == inspectedGuid } else null
+                            val profile = inspected?.profile ?: uiState.selectedProfile
+                            val guid = inspected?.guid ?: uiState.selectedGuid
+                            if (profile != null && guid != null) {
+                                if (inspected != null) {
+                                    Text(
+                                        inspected.remarks,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
                                     )
                                 }
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    if (!tv) {
+                                        MainControl(
+                                            label = stringResource(R.string.action_edit),
+                                            onClick = { onAction(MainAction.EditServer(guid, profile)) },
+                                            icon = R.drawable.ic_edit_24dp,
+                                            iconOnly = true,
+                                        )
+                                    }
+                                    MainControl(
+                                        label = stringResource(R.string.acc_more),
+                                        onClick = { shareTarget = Triple(guid, profile, true) },
+                                        tv = tv,
+                                        icon = R.drawable.ic_more_vert_24dp,
+                                        iconOnly = true,
+                                    )
+                                }
+                                if (inspected != null && searchQuery.isEmpty() && uiState.selectedGroupId.isNotEmpty()) {
+                                    val index = currentGroup.rows.indexOf(inspected)
+                                    val groupId = uiState.selectedGroupId
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        MainControl(
+                                            label = stringResource(R.string.home_move_up),
+                                            onClick = { onAction(MainAction.MoveServer(groupId, guid, -1)) },
+                                            modifier = Modifier.weight(1f),
+                                            tv = true,
+                                            enabled = index > 0,
+                                        )
+                                        MainControl(
+                                            label = stringResource(R.string.home_move_down),
+                                            onClick = { onAction(MainAction.MoveServer(groupId, guid, 1)) },
+                                            modifier = Modifier.weight(1f),
+                                            tv = true,
+                                            enabled = index < currentGroup.rows.lastIndex,
+                                        )
+                                    }
+                                }
+                            } else if (showImportShortcuts) {
+                                MainImportShortcuts(
+                                    tv = tv,
+                                    hasCamera = hasCamera,
+                                    onAction = onAction,
+                                    onImportText = {
+                                        importSubscription = false
+                                        showImportDialog = true
+                                    },
+                                )
                             }
-                        )
+                        }
                     }
-
-                    HorizontalPager(
-                        state = pagerState,
-                        modifier = Modifier.fillMaxSize(),
-                        userScrollEnabled = true,
-                        beyondViewportPageCount = 1,
-                        key = { page -> groups.getOrNull(page)?.id ?: "group-page-$page" }
-                    ) { page ->
-                        val group = groups.getOrNull(page) ?: return@HorizontalPager
-
-                        GroupPagerPage(
-                            groupId = group.id,
-                            mainViewModel = mainViewModel,
-                            selectedGuid = selectedGuid,
-                            locateTarget = uiState.locateTarget,
-                            doubleColumnDisplay = doubleColumnDisplay,
-                            searchQuery = searchQuery,
-                            lazyListStates = lazyListStates,
-                            lazyGridStates = lazyGridStates,
-                            onSelectServer = { guid -> onAction(MainAction.SelectServer(guid)) },
-                            onEditServer = { guid, profile -> onAction(MainAction.EditServer(guid, profile)) },
-                            onShareServer = { guid, profile ->
-                                shareTarget = Triple(guid, profile, false)
-                            },
-                            onMoreServer = { guid, profile ->
-                                shareTarget = Triple(guid, profile, true)
-                            },
-                            onRemoveServer = removeServer,
-                            usageInfo = group.usageInfo,
-                            groupTitle = group.remarks,
-                            onOpenLink = { url -> onAction(MainAction.OpenSubscriptionLink(url)) },
-                            contentPadding = PaddingValues(
-                                start = 0.dp,
-                                top = 0.dp,
-                                end = 0.dp,
-                                bottom = bottomBarHeight + 8.dp
-                            )
+                } else {
+                    Column(Modifier.fillMaxSize()) {
+                        Box(Modifier.padding(horizontal = horizontalPadding).padding(top = 4.dp)) { connection() }
+                        Box(Modifier.weight(1f).padding(horizontal = horizontalPadding)) { profiles() }
+                        MainNavigation(
+                            tv = false,
+                            onNavigate = onNavigate,
+                            onProfiles = { onAction(MainAction.LocateSelectedServer) },
                         )
                     }
                 }
             }
-            MainBottomBar(
-                displayText = displayText,
-                isRunning = isRunning,
-                isDarkTheme = isDarkTheme,
-                onAction = onAction,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .onSizeChanged { bottomBarHeightPx = it.height }
-            )
+        }
+    }
+}
+
+@Composable
+private fun MainNavigation(
+    tv: Boolean,
+    onNavigate: (MainDestination) -> Unit,
+    modifier: Modifier = Modifier,
+    onMenu: (() -> Unit)? = null,
+    onProfiles: () -> Unit = {},
+) {
+    val destinations = listOf(MainDestination.Subscriptions, MainDestination.Settings)
+    if (onMenu != null) {
+        Column(modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            MainControl(stringResource(R.string.title_server), onClick = onMenu, tv = tv, selected = true,
+                modifier = Modifier.fillMaxWidth())
+            destinations.forEach { destination ->
+                MainControl(stringResource(destination.labelRes), { onNavigate(destination) }, tv = tv,
+                    modifier = Modifier.fillMaxWidth())
             }
         }
+    } else {
+        NavigationBar(modifier, containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
+            NavigationBarItem(
+                selected = true,
+                onClick = onProfiles,
+                icon = { Icon(painterResource(R.drawable.ic_select_all_24dp), contentDescription = null) },
+                label = { Text(stringResource(R.string.title_server)) },
+            )
+            destinations.forEach { destination ->
+                NavigationBarItem(
+                    selected = false,
+                    onClick = { onNavigate(destination) },
+                    icon = { Icon(painterResource(destination.iconRes), contentDescription = null) },
+                    label = { Text(stringResource(destination.labelRes)) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MainImportShortcuts(
+    tv: Boolean,
+    hasCamera: Boolean,
+    onAction: (MainAction) -> Unit,
+    onImportText: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(stringResource(R.string.home_import_options), style = MaterialTheme.typography.titleMedium)
+        if (hasCamera) {
+            MainControl(
+                stringResource(R.string.menu_item_import_config_qrcode),
+                { onAction(MainAction.ImportQRcode) },
+                Modifier.fillMaxWidth(), tv = tv,
+            )
+        }
+        MainControl(
+            stringResource(R.string.menu_item_import_config_clipboard),
+            { onAction(MainAction.ImportClipboard) },
+            Modifier.fillMaxWidth(), tv = tv,
+        )
+        MainControl(
+            stringResource(R.string.menu_item_import_config_local),
+            { onAction(MainAction.ImportConfigLocal) },
+            Modifier.fillMaxWidth(), tv = tv,
+        )
+        MainControl(
+            stringResource(R.string.home_import_text), onImportText,
+            Modifier.fillMaxWidth(), tv = tv,
+        )
     }
 }

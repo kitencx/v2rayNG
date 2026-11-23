@@ -1,14 +1,12 @@
 package com.v2ray.ang.ui.main
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -17,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -26,7 +23,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.PagerState
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -35,20 +32,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,12 +57,8 @@ import com.v2ray.ang.R
 import com.v2ray.ang.dto.LocateTarget
 import com.v2ray.ang.dto.entities.ProfileItem
 import com.v2ray.ang.dto.entities.SubscriptionUsageInfo
-import com.v2ray.ang.ui.compose.ItemDivider
 import com.v2ray.ang.ui.compose.ReorderableGridItem
 import com.v2ray.ang.ui.compose.ReorderableListItem
-import com.v2ray.ang.ui.compose.colorConfigType
-import com.v2ray.ang.ui.compose.colorPing
-import com.v2ray.ang.ui.compose.colorPingRed
 import com.v2ray.ang.ui.compose.verticalScrollbar
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyGridState
@@ -80,14 +76,14 @@ fun GroupPagerPage(
     lazyListStates: MutableMap<String, LazyListState>,
     lazyGridStates: MutableMap<String, LazyGridState>,
     onSelectServer: (String) -> Unit,
-    onEditServer: (String, ProfileItem) -> Unit,
-    onShareServer: (String, ProfileItem) -> Unit,
     onMoreServer: (String, ProfileItem) -> Unit,
-    onRemoveServer: (String, String) -> Unit,
     usageInfo: SubscriptionUsageInfo?,
     groupTitle: String,
     onOpenLink: (String) -> Unit,
-    contentPadding: PaddingValues
+    contentPadding: PaddingValues,
+    tv: Boolean,
+    listFocusFallback: FocusRequester,
+    onTvFocus: (String) -> Unit,
 ) {
     val groupStateFlow = remember(groupId) {
         mainViewModel.serverGroupState(groupId)
@@ -96,17 +92,11 @@ fun GroupPagerPage(
     val canReorder = groupId.isNotEmpty() && searchQuery.isEmpty()
     val actions = remember(
         onSelectServer,
-        onEditServer,
-        onShareServer,
         onMoreServer,
-        onRemoveServer,
     ) {
         ServerRowActions(
             select = onSelectServer,
-            edit = onEditServer,
-            share = onShareServer,
             more = onMoreServer,
-            remove = onRemoveServer,
         )
     }
     // The box floats over the list (the list scrolls underneath it), so the list is padded by the box height.
@@ -125,7 +115,20 @@ fun GroupPagerPage(
     }
 
     Box(Modifier.fillMaxSize()) {
-        ServerListPage(
+        if (tv) {
+            val listState = remember(groupId) { lazyListStates.getOrPut(groupId) { LazyListState() } }
+            MainTvServerList(
+                rows = groupState.rows,
+                selectedGuid = selectedGuid,
+                locateTarget = locateTarget?.takeIf { it.groupId == groupId },
+                state = listState,
+                onLocateHandled = { mainViewModel.onAction(MainAction.LocateHandled) },
+                onSelect = actions.select,
+                fallback = listFocusFallback,
+                onRowFocus = onTvFocus,
+                contentPadding = listPadding,
+            )
+        } else ServerListPage(
             rows = groupState.rows,
             selectedGuid = selectedGuid,
             locateTarget = locateTarget?.takeIf { it.groupId == groupId },
@@ -157,10 +160,7 @@ fun GroupPagerPage(
 
 private class ServerRowActions(
     val select: (String) -> Unit,
-    val edit: (String, ProfileItem) -> Unit,
-    val share: (String, ProfileItem) -> Unit,
     val more: (String, ProfileItem) -> Unit,
-    val remove: (String, String) -> Unit,
 )
 
 @Composable
@@ -200,10 +200,9 @@ private fun ServerListPage(
         ) {
             itemsIndexed(items = rows, key = { _, item -> item.guid }) { _, row ->
                 val content: @Composable () -> Unit = {
-                    ServerItemColumn(
+                    ServerItemRow(
                         row = row,
                         isSelected = row.guid == selectedGuid,
-                        doubleColumnDisplay = true,
                         actions = actions
                     )
                 }
@@ -261,7 +260,6 @@ private fun ServerListPage(
                                     actions = actions
                                 )
                             }
-                            ItemDivider()
                         }
                     }
                 } else {
@@ -270,7 +268,6 @@ private fun ServerListPage(
                         isSelected = row.guid == selectedGuid,
                         actions = actions
                     )
-                    ItemDivider()
                 }
             }
         }
@@ -313,159 +310,108 @@ private fun LocateTargetEffect(
 private fun ServerItemRow(
     row: ServerRowUiModel,
     isSelected: Boolean,
-    actions: ServerRowActions
+    actions: ServerRowActions,
 ) {
-    ServerListItem(
+    MainServerRow(
         row = row,
         isSelected = isSelected,
-        doubleColumnDisplay = false,
-        actions = actions
+        onSelect = { actions.select(row.guid) },
+        onMore = { actions.more(row.guid, row.profile) },
     )
 }
 
 @Composable
-private fun ServerItemColumn(
+internal fun MainServerRow(
     row: ServerRowUiModel,
     isSelected: Boolean,
-    doubleColumnDisplay: Boolean,
-    actions: ServerRowActions
+    onSelect: () -> Unit,
+    modifier: Modifier = Modifier,
+    tv: Boolean = false,
+    onMore: (() -> Unit)? = null,
 ) {
-    Column {
-        ServerListItem(
-            row = row,
-            isSelected = isSelected,
-            doubleColumnDisplay = doubleColumnDisplay,
-            actions = actions
-        )
-        ItemDivider()
-    }
-}
-
-@Composable
-private fun ServerListItem(
-    row: ServerRowUiModel,
-    isSelected: Boolean,
-    doubleColumnDisplay: Boolean,
-    actions: ServerRowActions
-) {
-    val testResult = if (row.testDelayMillis == 0L) {
-        ""
-    } else {
-        stringResource(R.string.server_test_delay_value, row.testDelayMillis)
-    }
-    val selectedStateDescription = if (isSelected) {
-        stringResource(R.string.acc_selected_server)
-    } else {
-        null
-    }
+    val colors = MaterialTheme.colorScheme
+    var focused by remember { mutableStateOf(false) }
+    val focusFill = tv && focused
+    val foreground = if (focusFill) colors.inverseOnSurface else colors.onSurface
+    val secondary = if (focusFill) colors.inverseOnSurface else colors.onSurfaceVariant
+    val selectionColor = if (focusFill) foreground else colors.primary
+    val shape = RoundedCornerShape(12.dp)
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(IntrinsicSize.Min)
-            .semantics {
-                if (selectedStateDescription != null) {
-                    stateDescription = selectedStateDescription
-                }
-            }
-            .clickable { actions.select(row.guid) }
+        Modifier.fillMaxWidth().padding(vertical = 3.dp).clip(shape)
+            .background(if (isSelected) colors.primaryContainer else colors.surface),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            Modifier
-                .width(10.dp)
-                .fillMaxHeight()
+        Row(
+            modifier.weight(1f)
+                .clip(shape)
+                .background(if (focusFill) colors.inverseSurface else Color.Transparent)
+                .onFocusChanged { focused = it.isFocused }
+                .selectable(selected = isSelected, role = Role.RadioButton, onClick = onSelect)
+                .padding(horizontal = if (tv) 14.dp else 10.dp, vertical = if (tv) 12.dp else 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            if (isSelected) {
-                Row {
-                    Spacer(Modifier.width(6.dp))
-                    Box(
-                        Modifier
-                            .width(4.dp)
-                            .fillMaxHeight()
-                            .padding(vertical = 10.dp)
-                            .background(MaterialTheme.colorScheme.primary)
+            if (row.subscriptionBadge.isNotBlank()) {
+                Box(
+                    Modifier.size(if (tv) 38.dp else 30.dp).clip(RoundedCornerShape(8.dp))
+                        .background(if (focusFill) colors.inverseOnSurface else colors.surfaceContainerHigh),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        row.subscriptionBadge.uppercase(),
+                        modifier = Modifier.clearAndSetSemantics {},
+                        color = if (focusFill) colors.inverseSurface else selectionColor,
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1,
                     )
                 }
             }
-        }
-
-        Column(
-            Modifier
-                .weight(1f)
-                .padding(start = 8.dp, end = 12.dp, top = 8.dp, bottom = 8.dp)
-        ) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(row.remarks, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge.copy(lineBreak = LineBreak.Paragraph), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                if (doubleColumnDisplay) {
-                    IconButton(onClick = { actions.more(row.guid, row.profile) }, Modifier.size(36.dp)) {
-                        Icon(
-                            painterResource(R.drawable.ic_more_vert_24dp),
-                            stringResource(R.string.acc_more),
-                            Modifier.size(24.dp)
-                        )
-                    }
-                } else {
-                    IconButton(onClick = { actions.share(row.guid, row.profile) }, Modifier.size(36.dp)) {
-                        Icon(
-                            painterResource(R.drawable.ic_share_24dp),
-                            stringResource(R.string.title_configuration_share),
-                            Modifier.size(24.dp)
-                        )
-                    }
-                    IconButton(onClick = { actions.edit(row.guid, row.profile) }, Modifier.size(36.dp)) {
-                        Icon(
-                            painterResource(R.drawable.ic_edit_24dp),
-                            stringResource(R.string.acc_edit),
-                            Modifier.size(24.dp)
-                        )
-                    }
-                    IconButton(onClick = { actions.remove(row.guid, row.remarks) }, Modifier.size(36.dp)) {
-                        Icon(
-                            painterResource(R.drawable.ic_delete_24dp),
-                            stringResource(R.string.acc_delete),
-                            Modifier.size(24.dp)
-                        )
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(6.dp))
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                if (row.subscriptionBadge.isNotBlank()) {
-                    Box(
-                        Modifier
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)), Alignment.Center
-                    ) {
-                        Text(row.subscriptionBadge.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    }
-                }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    row.statistics,
-                    Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    row.remarks,
+                    color = foreground,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = if (tv) 20.sp else 16.sp,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
-            }
-            Spacer(modifier = Modifier.height(6.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(
                     row.typeDescription,
-                    modifier = Modifier.weight(1f, fill = false),
+                    color = secondary,
                     style = MaterialTheme.typography.bodySmall,
-                    color = colorConfigType,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                if (!tv && row.statistics.isNotBlank()) {
+                    Text(
+                        row.statistics,
+                        color = secondary,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            if (row.testDelayMillis != 0L) {
                 Text(
-                    testResult,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (row.testDelayMillis < 0L) colorPingRed else colorPing,
+                    stringResource(R.string.server_test_delay_value, row.testDelayMillis),
+                    color = when {
+                        focusFill -> foreground
+                        row.testDelayMillis < 0 -> colors.error
+                        isSelected -> selectionColor
+                        else -> secondary
+                    },
+                    style = MaterialTheme.typography.labelMedium,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
                 )
+            }
+            if (isSelected) {
+                Icon(painterResource(R.drawable.ic_action_done), null, Modifier.size(17.dp), tint = selectionColor)
+            }
+        }
+        if (onMore != null) {
+            IconButton(onClick = onMore) {
+                Icon(painterResource(R.drawable.ic_more_vert_24dp), stringResource(R.string.acc_more))
             }
         }
     }

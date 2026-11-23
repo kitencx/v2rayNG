@@ -575,4 +575,12 @@
     <string name="sub_info_open_page">সাবস্ক্রিপশন তথ্যের পাতা খুলুন</string>
     <string name="sub_info_unlimited">সীমাহীন</string>
 
+    <string name="home_no_profiles">এখনও কোনো প্রোফাইল নেই</string>
+    <string name="home_import_hint">একটি সাবস্ক্রিপশন যোগ করুন বা কনফিগারেশন আমদানি করুন।</string>
+    <string name="home_service_running">সেবা চলছে</string>
+    <string name="home_import_text">টেক্সট আমদানি করুন</string>
+    <string name="home_add_and_update">যোগ ও আপডেট করুন</string>
+    <string name="home_import_options">আমদানির অন্যান্য উপায়</string>
+    <string name="home_move_up">উপরে সরান</string>
+    <string name="home_move_down">নিচে সরান</string>
 </resources>

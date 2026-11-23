@@ -1,7 +1,6 @@
 package com.v2ray.ang.ui.subscription
 
 import android.os.Bundle
-import android.text.TextUtils
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -10,10 +9,12 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -30,18 +31,18 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.activity.viewModels
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.v2ray.ang.AppConfig
 import com.v2ray.ang.R
 import com.v2ray.ang.dto.entities.SubscriptionItem
-import com.v2ray.ang.enums.EConfigType
 import com.v2ray.ang.extension.toLongEx
-import com.v2ray.ang.extension.toastSuccess
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.handler.SettingsChangeManager
 import com.v2ray.ang.handler.SettingsManager
-import com.v2ray.ang.handler.SubscriptionUpdater
 import com.v2ray.ang.ui.base.BaseComponentActivity
 import com.v2ray.ang.ui.compose.AppTopBar
 import com.v2ray.ang.ui.compose.DeleteConfirmDialog
@@ -50,64 +51,34 @@ import com.v2ray.ang.ui.compose.NavigationBarsSpacer
 import com.v2ray.ang.ui.compose.ServerSelectListDialog
 import com.v2ray.ang.ui.compose.SettingsSwitchItem
 import com.v2ray.ang.ui.compose.verticalScrollbar
+import com.v2ray.ang.ui.main.MainControl
 import com.v2ray.ang.util.Utils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class SubEditActivity : BaseComponentActivity() {
+    private val viewModel: SubscriptionsViewModel by viewModels()
     private val editSubId by lazy { intent.getStringExtra("subId").orEmpty() }
-    private lateinit var suggestions: List<String>
     private lateinit var subItem: SubscriptionItem
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        viewModel.refreshProfileSuggestions()
 
-        suggestions = SettingsManager.getProfileRemarks(
-            excludeConfigTypes = setOf(
-                EConfigType.CUSTOM,
-                EConfigType.CUSTOM_OUTBOUND,
-                EConfigType.POLICYGROUP,
-                EConfigType.PROXYCHAIN,
-            )
-        )
         subItem = MmkvManager.decodeSubscription(editSubId) ?: SubscriptionItem()
     }
 
     @Composable
     override fun ScreenContent() {
+        val suggestions by viewModel.profileSuggestions.collectAsStateWithLifecycle()
         SubEditScreen(
             editSubId = editSubId,
             initial = subItem,
             profileSuggestions = suggestions,
             onBackClick = { finish() },
-            onSave = { saveServer(it) },
+            onSave = { viewModel.saveFromEditor(editSubId, it) { finish() } },
             onDelete = { deleteServer() }
         )
-    }
-
-    private fun saveServer(subItem: SubscriptionItem): Boolean {
-        if (TextUtils.isEmpty(subItem.remarks)) {
-            return false
-        }
-        if (subItem.url.isNotEmpty()) {
-            if (!Utils.isValidUrl(subItem.url)) {
-                return false
-            }
-            if (!Utils.isValidSubUrl(subItem.url) && !subItem.allowInsecureUrl) {
-                return false
-            }
-        }
-
-        if (subItem.autoUpdate && subItem.updateInterval < AppConfig.SUBSCRIPTION_MIN_INTERVAL_MINUTES) {
-            return false
-        }
-
-        MmkvManager.encodeSubscription(editSubId, subItem)
-        SubscriptionUpdater.syncOne(subId = editSubId)
-        SettingsChangeManager.makeSetupGroupTab()
-        toastSuccess(R.string.toast_success)
-        finish()
-        return true
     }
 
     private fun deleteServer(): Boolean {
@@ -128,10 +99,10 @@ fun SubEditScreen(
     initial: SubscriptionItem,
     profileSuggestions: List<String>,
     onBackClick: () -> Unit,
-    onSave: (SubscriptionItem) -> Boolean,
-    onDelete: () -> Unit
+    onSave: (SubscriptionItem) -> Unit,
+    onDelete: () -> Unit,
+    embedded: Boolean = false,
 ) {
-    //val context = LocalContext.current
     var remarks by rememberSaveable { mutableStateOf(initial.remarks.orEmpty()) }
     var isRemarksError by rememberSaveable { mutableStateOf(false) }
     var url by rememberSaveable { mutableStateOf(initial.url.orEmpty()) }
@@ -154,7 +125,7 @@ fun SubEditScreen(
     val scrollState = rememberScrollState()
 
     fun buildSubItem(): SubscriptionItem {
-        val subItem = MmkvManager.decodeSubscription(editSubId) ?: SubscriptionItem()
+        val subItem = initial.copy()
         subItem.remarks = remarks
         subItem.url = url
         subItem.userAgent = userAgent
@@ -169,52 +140,25 @@ fun SubEditScreen(
         return subItem
     }
 
-    Scaffold(
-        contentWindowInsets = WindowInsets(0),
-        topBar = {
-            AppTopBar(
-                title = stringResource(R.string.title_sub_setting),
-                onBackClick = onBackClick,
-                actions = {
-                    if (editSubId.isNotEmpty()) {
-                        IconButton(onClick = {
-                            if (confirmRemove) showDeleteConfirm = true else onDelete()
-                        }) {
-                            Icon(painterResource(R.drawable.ic_delete_24dp), contentDescription = stringResource(R.string.acc_delete))
-                        }
-                    }
-                    IconButton(onClick = {
-                        val remarksErr = remarks.isBlank()
-                        val urlErr = url.isNotEmpty() && (
-                            !Utils.isValidUrl(url) || (!Utils.isValidSubUrl(url) && !allowInsecureUrl)
-                        )
-                        val intervalErr = autoUpdate && updateInterval.toLongEx() < AppConfig.SUBSCRIPTION_MIN_INTERVAL_MINUTES
+    val save = {
+        val remarksErr = remarks.isBlank()
+        val urlErr = url.isNotEmpty() &&
+            (!Utils.isValidUrl(url) || (!Utils.isValidSubUrl(url) && !allowInsecureUrl))
+        val intervalErr = autoUpdate && updateInterval.toLongEx() < AppConfig.SUBSCRIPTION_MIN_INTERVAL_MINUTES
+        isRemarksError = remarksErr
+        isUrlError = urlErr
+        isUpdateIntervalError = intervalErr
+        if (!remarksErr && !urlErr && !intervalErr) onSave(buildSubItem())
+    }
 
-                        isRemarksError = remarksErr
-                        isUrlError = urlErr
-                        isUpdateIntervalError = intervalErr
-
-                        val hasError = remarksErr || urlErr || intervalErr
-                        if (!hasError) {
-                            onSave(buildSubItem())
-                        }
-                    }) {
-                        Icon(painterResource(R.drawable.ic_fab_check), contentDescription = stringResource(R.string.acc_save))
-                    }
-                }
-            )
-        }
-    ) { innerPadding ->
+    val form: @Composable (Modifier) -> Unit = { modifier ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .consumeWindowInsets(innerPadding)
+            modifier
+                .fillMaxWidth()
                 .imePadding()
                 .verticalScroll(scrollState)
                 .verticalScrollbar(scrollState)
-                .padding(vertical = 8.dp)
-                .padding(bottom = 36.dp)
+                .padding(vertical = 8.dp),
         ) {
             FormTextField(
                 label = stringResource(R.string.sub_setting_remarks),
@@ -274,7 +218,63 @@ fun SubEditScreen(
                 onClear = { nextProfile = "" },
                 supportingText = stringResource(R.string.sub_setting_exit_proxy_tip)
             )
-            NavigationBarsSpacer()
+            if (!embedded) {
+                Button(
+                    onClick = save,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                ) {
+                    Text(stringResource(R.string.acc_save))
+                }
+                NavigationBarsSpacer()
+            }
+        }
+    }
+
+    if (embedded) {
+        Column(Modifier.fillMaxSize()) {
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(horizontal = 16.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = initial.remarks.ifBlank { stringResource(R.string.acc_add_subscription) },
+                    style = MaterialTheme.typography.titleLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                MainControl(
+                    label = stringResource(R.string.acc_save),
+                    onClick = save,
+                    icon = R.drawable.ic_fab_check,
+                    iconOnly = true,
+                    emphasized = true,
+                    tv = true,
+                )
+            }
+            form(Modifier.weight(1f))
+        }
+    } else {
+        Scaffold(
+            contentWindowInsets = WindowInsets(0),
+            topBar = {
+                AppTopBar(
+                    title = stringResource(R.string.title_sub_setting),
+                    onBackClick = onBackClick,
+                    actions = {
+                        if (editSubId.isNotEmpty()) {
+                            IconButton(onClick = {
+                                if (confirmRemove) showDeleteConfirm = true else onDelete()
+                            }) {
+                                Icon(painterResource(R.drawable.ic_delete_24dp), contentDescription = stringResource(R.string.acc_delete))
+                            }
+                        }
+                    },
+                )
+            },
+        ) { innerPadding ->
+            form(Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding))
         }
     }
 

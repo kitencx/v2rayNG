@@ -576,4 +576,12 @@
     <string name="sub_info_traffic" translatable="false">%1$s / %2$s</string>
     <string name="sub_info_unlimited">Limitsiz</string>
 
+    <string name="home_no_profiles">Hələ profil yoxdur</string>
+    <string name="home_import_hint">Abunəlik əlavə edin və ya konfiqurasiya idxal edin.</string>
+    <string name="home_service_running">Xidmət işləyir</string>
+    <string name="home_import_text">Mətni idxal et</string>
+    <string name="home_add_and_update">Əlavə et və yenilə</string>
+    <string name="home_import_options">Digər idxal seçimləri</string>
+    <string name="home_move_up">Yuxarı köçür</string>
+    <string name="home_move_down">Aşağı köçür</string>
 </resources>

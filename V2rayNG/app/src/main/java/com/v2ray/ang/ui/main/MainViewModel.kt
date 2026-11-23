@@ -21,6 +21,7 @@ import com.v2ray.ang.extension.moveItem
 import com.v2ray.ang.handler.SubscriptionInfoParser
 import com.v2ray.ang.ui.base.BaseViewModel
 import com.v2ray.ang.util.LogUtil
+import com.v2ray.ang.util.Utils
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
@@ -288,9 +289,22 @@ class MainViewModel(
             is MainAction.UpdateGroupSubscription -> importConfigViaSub(action.groupId)
             MainAction.ExportAll -> exportAllAsync()
             is MainAction.SelectGroup -> subscriptionIdChanged(action.groupId)
+            is MainAction.MoveServer -> {
+                val from = mutableServerGroupState(action.groupId).value.servers.indexOfFirst { it.guid == action.guid }
+                if (from >= 0 && action.groupId == uiState.value.selectedGroupId &&
+                    action.groupId.isNotEmpty() && keywordFilter.isEmpty()
+                ) {
+                    moveServer(action.groupId, from, from + action.offset)
+                }
+            }
             is MainAction.SelectServer -> updateSelectedGuid(action.guid)
             is MainAction.RemoveServer -> removeServerAndRefresh(action.guid)
             is MainAction.Search -> filterConfig(action.query)
+            is MainAction.ImportSubscriptionUrl -> {
+                val url = action.url.trim()
+                if (Utils.isValidSubUrl(url)) importBatchConfig(url)
+                else toastError(R.string.toast_invalid_url)
+            }
             is MainAction.ImportBatchConfig -> importBatchConfig(action.configText)
             MainAction.LocateHandled -> consumeLocateTarget()
             is MainAction.ShareQRCode -> {
@@ -470,11 +484,14 @@ class MainViewModel(
                 groupServerFlows.keys.removeAll { it !in validIds }
                 groupLoadMutexes.keys.removeAll { it !in validIds }
 
+                val selectedGuid = dataSource.getSelectServer()
+                val selectedProfile = selectedGuid?.let(dataSource::decodeServerConfig)
                 _uiState.update {
                     it.copy(
                         groups = groups,
                         selectedGroupId = selectedGroup,
-                        selectedGuid = dataSource.getSelectServer(),
+                        selectedGuid = selectedGuid,
+                        selectedProfile = selectedProfile,
                     )
                 }
                 groups.forEach { mutableServerGroupState(it.id) }
@@ -778,11 +795,19 @@ class MainViewModel(
 
     fun updateSelectedGuid(guid: String) {
         dataSource.setSelectServer(guid)
-        _uiState.update { it.copy(selectedGuid = guid) }
+        _uiState.update { it.copy(selectedGuid = guid, selectedProfile = null) }
+        viewModelScope.launch(ioDispatcher) {
+            val profile = dataSource.decodeServerConfig(guid)
+            _uiState.update { state ->
+                if (state.selectedGuid == guid) state.copy(selectedProfile = profile) else state
+            }
+        }
     }
 
     fun refreshSelectedGuid() {
-        _uiState.update { it.copy(selectedGuid = dataSource.getSelectServer()) }
+        val guid = dataSource.getSelectServer()
+        val profile = guid?.let(dataSource::decodeServerConfig)
+        _uiState.update { it.copy(selectedGuid = guid, selectedProfile = profile) }
     }
 
     fun removeServerAndRefresh(guid: String) {

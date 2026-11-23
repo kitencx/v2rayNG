@@ -9,9 +9,11 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,6 +32,9 @@ import com.v2ray.ang.ui.compose.verticalScrollbar
 @Composable
 fun MainTopBar(
     isLoading: Boolean,
+    hasCamera: Boolean,
+    onAddSubscription: () -> Unit,
+    onImportText: () -> Unit,
     showSearch: Boolean,
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
@@ -48,7 +53,7 @@ fun MainTopBar(
     val maxMenuHeight = LocalConfiguration.current.screenHeightDp.dp - statusBarHeight - navBarHeight - 20.dp
 
     AppTopBar(
-        title = stringResource(R.string.title_server),
+        title = stringResource(R.string.app_name),
         onBackClick = {},
         isLoading = isLoading,
         isSearchActive = showSearch,
@@ -86,7 +91,16 @@ fun MainTopBar(
                         .heightIn(max = maxMenuHeight)
                         .verticalScrollbar(importMenuScrollState)
                 ) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.acc_add_subscription)) },
+                        onClick = { showImportMenu = false; onAddSubscription() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.home_import_text)) },
+                        onClick = { showImportMenu = false; onImportText() },
+                    )
                     ImportMenuContent(
+                        hasCamera = hasCamera,
                         onAction = { action ->
                             showImportMenu = false
                             onAction(action)
