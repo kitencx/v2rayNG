@@ -5,12 +5,16 @@ plugins {
     id("com.jaredsburrows.license")
 }
 
+val customPackage = providers.gradleProperty("customPackage").orNull == "true"
+
 android {
     namespace = "com.v2ray.ang"
     compileSdk = 37
 
     defaultConfig {
         applicationId = "com.v2ray.ang"
+        buildConfigField("boolean", "USE_XRAY", "true")
+        buildConfigField("boolean", "CUSTOM_PACKAGE", "false")
         minSdk = 24
         targetSdk = 37
         versionCode = 760
@@ -57,11 +61,20 @@ android {
         }
         create("playstore") {
             dimension = "distribution"
-            buildConfigField("String", "DISTRIBUTION", "\"Play Store\"")
+            if (customPackage) {
+                applicationId = "org.ktx.v2ray"
+                buildConfigField("String", "DISTRIBUTION", "\"Custom\"")
+                buildConfigField("boolean", "CUSTOM_PACKAGE", "true")
+            } else {
+                buildConfigField("String", "DISTRIBUTION", "\"Play Store\"")
+            }
         }
     }
 
     sourceSets {
+        if (customPackage) {
+            getByName("playstore").res.srcDir("src/custom/res")
+        }
         getByName("main") {
             jniLibs.srcDirs("libs")
         }
@@ -112,7 +125,8 @@ android {
                     else
                         "universal"
 
-                    output.outputFileName = "v2rayNG_${variant.versionName}_${abi}.apk"
+                    val suffix = if (customPackage) "-custom" else ""
+                    output.outputFileName = "v2rayNG_${variant.versionName}${suffix}_${abi}.apk"
                     if (versionCodes.containsKey(abi)) {
                         output.versionCodeOverride =
                             (1000000 * versionCodes[abi]!!).plus(variant.versionCode)
