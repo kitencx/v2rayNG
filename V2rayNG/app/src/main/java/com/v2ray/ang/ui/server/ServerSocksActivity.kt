@@ -6,6 +6,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.res.stringResource
 import com.v2ray.ang.R
 import com.v2ray.ang.enums.EConfigType
+import com.v2ray.ang.ui.compose.FormSection
 import com.v2ray.ang.ui.compose.FormTextField
 
 class ServerSocksActivity : BaseServerActivity() {
@@ -27,8 +28,10 @@ class ServerSocksActivity : BaseServerActivity() {
             title = serverConfigType.toString(),
             onSaveClick = { saveServer(uiState) }
         ) {
-            CommonBasicFields(uiState)
-            SocksProtocolFields(uiState)
+            FormSection(stringResource(R.string.form_basic)) {
+                CommonBasicFields(uiState)
+                SocksProtocolFields(uiState)
+            }
 
         }
     }

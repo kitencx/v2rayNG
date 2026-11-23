@@ -26,6 +26,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import com.v2ray.ang.ui.compose.AdaptiveContent
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -34,7 +36,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
@@ -101,8 +105,8 @@ class RoutingSettingActivity : HelperBaseComponentActivity() {
             domainStrategyState = domainStrategyState,
             onBackClick = { finish() },
             onAddRule = { startActivity(Intent(this, RoutingEditActivity::class.java)) },
-            onEditRule = { position ->
-                startActivity(Intent(this, RoutingEditActivity::class.java).putExtra("position", position))
+            onEditRule = { id ->
+                startActivity(Intent(this, RoutingEditActivity::class.java).putExtra("ruleId", id))
             },
             onDomainStrategySelected = { value ->
                 MmkvManager.encodeSettings(AppConfig.PREF_ROUTING_DOMAIN_STRATEGY, value)
@@ -194,7 +198,7 @@ fun RoutingSettingScreen(
     domainStrategyState: MutableStateFlow<String>,
     onBackClick: () -> Unit,
     onAddRule: () -> Unit,
-    onEditRule: (Int) -> Unit,
+    onEditRule: (String) -> Unit,
     onDomainStrategySelected: (String) -> Unit,
     onImportPredefined: (RoutingType) -> Unit,
     onImportClipboard: () -> Unit,
@@ -210,9 +214,9 @@ fun RoutingSettingScreen(
     val lazyListState = rememberLazyListState()
     val reorderableState = rememberReorderableLazyListState(lazyListState) { from, to ->
         // Lazy list indices include the preceding non-rule content, so resolve the stable rule keys.
-        val fromIndex = rulesets.indexOfFirst { it.id == from.key }
-        val toIndex = rulesets.indexOfFirst { it.id == to.key }
-        viewModel.move(fromIndex, toIndex)
+        val fromId = from.key as? String ?: return@rememberReorderableLazyListState
+        val toId = to.key as? String ?: return@rememberReorderableLazyListState
+        viewModel.move(fromId, toId)
     }
 
     Scaffold(
@@ -255,11 +259,12 @@ fun RoutingSettingScreen(
             )
         }
     ) { innerPadding ->
+        AdaptiveContent(Modifier.padding(innerPadding).consumeWindowInsets(innerPadding)) {
         LazyColumn(
             state = lazyListState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+
                 .verticalScrollbar(lazyListState),
             contentPadding = NavigationBarsBottomPadding()
         ) {
@@ -291,10 +296,10 @@ fun RoutingSettingScreen(
                     ) {
                         RoutingRulesetItem(
                             ruleset = ruleset,
-                            onEdit = { onEditRule(index) },
+                            onEdit = { onEditRule(ruleset.id) },
                             onEnabledChange = { checked ->
                                 val updated = ruleset.copy(enabled = checked)
-                                viewModel.update(index, updated)
+                                viewModel.update(ruleset.id, updated)
                             }
                         )
                     }
@@ -302,6 +307,7 @@ fun RoutingSettingScreen(
                 }
             }
         }
+            }
     }
 
 
@@ -325,6 +331,8 @@ private fun RoutingRulesetItem(
     onEdit: () -> Unit,
     onEnabledChange: (Boolean) -> Unit
 ) {
+    val switchLabel = stringResource(R.string.routing_enable_rule, ruleset.remarks.orEmpty())
+    val lockedLabel = stringResource(R.string.acc_locked)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -337,28 +345,24 @@ private fun RoutingRulesetItem(
                     text = ruleset.remarks ?: "",
                     style = MaterialTheme.typography.bodyLarge,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.semantics { if (ruleset.locked == true) stateDescription = lockedLabel },
                 )
                 if (ruleset.locked == true) {
                     Spacer(modifier = Modifier.width(4.dp))
                     Icon(
                         painter = painterResource(R.drawable.ic_lock_24dp),
-                        contentDescription = stringResource(R.string.acc_locked),
+                        contentDescription = null,
                         modifier = Modifier.size(16.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
-            val domainIpInfo = (ruleset.domain ?: ruleset.ip ?: ruleset.process ?: ruleset.port)?.toString() ?: ""
-            if (domainIpInfo.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = domainIpInfo,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+            val conditionCount = listOf(ruleset.domain, ruleset.ip, ruleset.process, ruleset.protocol)
+                .sumOf { it?.size ?: 0 } + listOf(ruleset.port, ruleset.network).count { !it.isNullOrBlank() }
+            if (conditionCount > 0) {
+                Text(stringResource(R.string.routing_condition_count, conditionCount),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (!ruleset.outboundTag.isNullOrEmpty()) {
                 Spacer(modifier = Modifier.height(4.dp))
@@ -370,8 +374,8 @@ private fun RoutingRulesetItem(
             }
         }
 
-        Column(
-            horizontalAlignment = Alignment.End,
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(start = 8.dp)
         ) {
             IconButton(onClick = onEdit) {
@@ -380,11 +384,11 @@ private fun RoutingRulesetItem(
                     contentDescription = stringResource(R.string.acc_edit)
                 )
             }
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.width(8.dp))
             Switch(
                 checked = ruleset.enabled ?: false,
                 onCheckedChange = onEnabledChange,
-                modifier = Modifier.scale(0.7f),
+                modifier = Modifier.semantics { contentDescription = switchLabel },
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = MaterialTheme.colorScheme.onSecondary,
                     checkedTrackColor = MaterialTheme.colorScheme.secondary

@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import com.v2ray.ang.BuildConfig
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DrawerState
@@ -69,7 +71,7 @@ fun MainDrawerContent(drawerState: DrawerState, onNavigate: (MainDestination) ->
 
     ModalDrawerSheet(
         drawerState = drawerState,
-        modifier = Modifier.fillMaxWidth(0.75f),
+        modifier = Modifier.widthIn(max = 320.dp).fillMaxWidth(),
         drawerContainerColor = MaterialTheme.colorScheme.surface
     ) {
         Column(
@@ -80,7 +82,7 @@ fun MainDrawerContent(drawerState: DrawerState, onNavigate: (MainDestination) ->
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(180.dp)
+                    .height(128.dp)
             ) {
                 Column(
                     modifier = Modifier
@@ -91,10 +93,10 @@ fun MainDrawerContent(drawerState: DrawerState, onNavigate: (MainDestination) ->
                 ) {
                     val isDarkTheme = LocalDarkTheme.current
                     Image(
-                        painter = painterResource(R.mipmap.ic_launcher_foreground),
+                        painter = painterResource(if (BuildConfig.CUSTOM_PACKAGE) R.drawable.drawer_brand_mark else R.mipmap.ic_launcher_foreground),
                         contentDescription = null,
-                        modifier = Modifier.size(120.dp),
-                        colorFilter = if (isDarkTheme) {
+                        modifier = Modifier.size(64.dp),
+                        colorFilter = if (isDarkTheme && !BuildConfig.CUSTOM_PACKAGE) {
                             ColorFilter.tint(Color.White, BlendMode.SrcIn)
                         } else {
                             null

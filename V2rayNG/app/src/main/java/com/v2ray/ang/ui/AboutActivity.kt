@@ -1,5 +1,18 @@
 package com.v2ray.ang.ui
 
+import android.app.Application
+import androidx.activity.viewModels
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.v2ray.ang.ui.base.BaseViewModel
+import com.v2ray.ang.util.LogUtil
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import androidx.compose.ui.graphics.toArgb
 import android.content.Intent
 import android.os.Bundle
 import android.webkit.WebView
@@ -16,6 +29,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import com.v2ray.ang.ui.compose.AdaptiveContent
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +54,7 @@ import com.v2ray.ang.ui.compose.VersionInfoBlock
 import com.v2ray.ang.util.Utils
 
 class AboutActivity : BaseComponentActivity() {
+    private val viewModel: AboutViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,7 +62,11 @@ class AboutActivity : BaseComponentActivity() {
 
     @Composable
     override fun ScreenContent() {
+        val versionText by viewModel.versionText.collectAsStateWithLifecycle()
+        val licensesHtml by viewModel.licensesHtml.collectAsStateWithLifecycle()
         AboutScreen(
+            versionText = versionText,
+            licensesHtml = licensesHtml,
             onBackClick = { finish() },
             onTranslatorsClick = {
                 startActivity(Intent(this, TranslatorsActivity::class.java))
@@ -57,14 +77,14 @@ class AboutActivity : BaseComponentActivity() {
 
 @Composable
 fun AboutScreen(
+    versionText: String,
+    licensesHtml: String?,
     onBackClick: () -> Unit,
     onTranslatorsClick: () -> Unit
 ) {
     val context = LocalContext.current
     var showOssDialog by remember { mutableStateOf(false) }
 
-    val libVersion = CoreNativeManager.getLibVersion()
-    val versionText = "v${BuildConfig.VERSION_NAME} ($libVersion)"
     val appIdText = BuildConfig.APPLICATION_ID
 
     Scaffold(
@@ -76,10 +96,11 @@ fun AboutScreen(
             )
         }
     ) { innerPadding ->
+        AdaptiveContent(Modifier.padding(innerPadding).consumeWindowInsets(innerPadding)) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+
                 .verticalScroll(rememberScrollState())
         ) {
             SettingsMenuItem(
@@ -118,9 +139,15 @@ fun AboutScreen(
             )
             NavigationBarsSpacer()
         }
+            }
     }
 
     if (showOssDialog) {
+        val colors = MaterialTheme.colorScheme
+        fun cssColor(color: androidx.compose.ui.graphics.Color) = "#%06x".format(color.toArgb() and 0xffffff)
+        val html = remember(licensesHtml, colors) {
+            licensesHtml?.replace("</head>", "<style>html,body{background:${cssColor(colors.surface)}!important;color:${cssColor(colors.onSurface)}!important}a{color:${cssColor(colors.primary)}!important}pre{background:${cssColor(colors.surfaceContainer)}!important;color:${cssColor(colors.onSurface)}!important;white-space:pre-wrap;overflow-wrap:anywhere}</style></head>")
+        }
         AlertDialog(
             onDismissRequest = { showOssDialog = false },
             title = { Text(stringResource(R.string.title_oss_license)) },
@@ -128,12 +155,18 @@ fun AboutScreen(
                 AndroidView(
                     factory = { ctx ->
                         WebView(ctx).apply {
-                            loadUrl("file:///android_asset/open_source_licenses.html")
+                            setBackgroundColor(colors.surface.toArgb())
+                            html?.let { loadDataWithBaseURL("file:///android_asset/", it, "text/html", "UTF-8", null) }
                         }
                     },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 300.dp)
+                    update = { webView ->
+                        if (webView.tag != html && html != null) {
+                            webView.loadDataWithBaseURL("file:///android_asset/", html, "text/html", "UTF-8", null)
+                            webView.tag = html
+                        }
+                    },
+                    onRelease = { it.destroy() },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 300.dp, max = 480.dp)
                 )
             },
             confirmButton = {
@@ -144,5 +177,29 @@ fun AboutScreen(
             containerColor = MaterialTheme.colorScheme.surface,
             modifier = Modifier.padding(bottom = 60.dp)
         )
+    }
+}
+
+class AboutViewModel(application: Application) : BaseViewModel(application) {
+    private val _versionText = MutableStateFlow("v${BuildConfig.VERSION_NAME}")
+    val versionText = _versionText.asStateFlow()
+    private val _licensesHtml = MutableStateFlow<String?>(null)
+    val licensesHtml = _licensesHtml.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            try {
+                val loaded = withContext(Dispatchers.IO) {
+                    CoreNativeManager.getLibVersion() to application.assets.open("open_source_licenses.html").bufferedReader().use { it.readText() }
+                }
+                _versionText.value = "v${BuildConfig.VERSION_NAME} (${loaded.first})"
+                _licensesHtml.value = loaded.second
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                LogUtil.e(AppConfig.TAG, "Failed to load app information", error)
+                toastError(R.string.toast_failure)
+            }
+        }
     }
 }

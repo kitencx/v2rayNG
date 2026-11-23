@@ -9,6 +9,7 @@ import com.v2ray.ang.R
 import com.v2ray.ang.dto.entities.ProfileItem
 import com.v2ray.ang.enums.EConfigType
 import com.v2ray.ang.ui.compose.FormDropdownField
+import com.v2ray.ang.ui.compose.FormSection
 import com.v2ray.ang.ui.compose.FormTextField
 
 class ServerVmessActivity : BaseServerActivity() {
@@ -32,15 +33,21 @@ class ServerVmessActivity : BaseServerActivity() {
             title = serverConfigType.toString(),
             onSaveClick = { saveServer(uiState) }
         ) {
-            CommonBasicFields(uiState)
-            VmessProtocolFields(uiState, securityOptions)
-            CommonNetworkFields(uiState, options)
-            CommonStreamSecurityFields(
-                state = uiState,
-                options = options,
-                scope = scope,
-                buildProfileItem = { uiState.toProfileItem(initialConfig) }
-            )
+            FormSection(stringResource(R.string.form_basic)) {
+                CommonBasicFields(uiState)
+                VmessProtocolFields(uiState, securityOptions)
+            }
+            FormSection(stringResource(R.string.form_transport), initiallyExpanded = uiState.network != "tcp") {
+                CommonNetworkFields(uiState, options)
+            }
+            FormSection(stringResource(R.string.form_security), initiallyExpanded = uiState.streamSecurity.isNotBlank()) {
+                CommonStreamSecurityFields(
+                    state = uiState,
+                    options = options,
+                    scope = scope,
+                    buildProfileItem = { uiState.toProfileItem(initialConfig) }
+                )
+            }
         }
     }
 

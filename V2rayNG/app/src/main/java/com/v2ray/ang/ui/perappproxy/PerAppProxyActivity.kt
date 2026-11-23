@@ -42,7 +42,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.v2ray.ang.R
 import com.v2ray.ang.dto.AppInfo
 import com.v2ray.ang.extension.toastSuccess
-import com.v2ray.ang.ui.base.BaseComponentActivity
+import com.v2ray.ang.ui.base.AppListActivity
+import com.v2ray.ang.ui.compose.AdaptiveContent
+import com.v2ray.ang.ui.compose.AppListNotice
+import com.v2ray.ang.util.AppListIssue
 import com.v2ray.ang.ui.compose.AppDivider
 import com.v2ray.ang.ui.compose.AppDropdownMenuItems
 import com.v2ray.ang.ui.compose.AppListItem
@@ -61,18 +64,22 @@ private enum class PerAppMenuAction(@StringRes val labelRes: Int) {
     ExportSelection(R.string.menu_item_export_proxy_app)
 }
 
-class PerAppProxyActivity : BaseComponentActivity() {
+class PerAppProxyActivity : AppListActivity() {
 
     private val viewModel: PerAppProxyViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        viewModel.loadApps(this)
+    }
+
+    override fun reloadAppList() {
+        viewModel.loadApps(this, forceReload = true)
     }
 
     @Composable
     override fun ScreenContent() {
         val apps by viewModel.displayedApps.collectAsStateWithLifecycle()
+        val appListIssue by viewModel.appListIssue.collectAsStateWithLifecycle()
         val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
         val blacklist by viewModel.blacklist.collectAsStateWithLifecycle()
         val perAppProxyEnabled by viewModel.perAppProxyEnabled.collectAsStateWithLifecycle()
@@ -80,6 +87,9 @@ class PerAppProxyActivity : BaseComponentActivity() {
 
         PerAppProxyScreen(
             apps = apps,
+            appListIssue = appListIssue,
+            onGrantAccess = { requestAppListAccess(appListIssue) },
+            onReload = { reloadAppList() },
             isLoading = isLoading,
             blacklist = blacklist,
             perAppProxyEnabled = perAppProxyEnabled,
@@ -108,6 +118,9 @@ class PerAppProxyActivity : BaseComponentActivity() {
 @Composable
 fun PerAppProxyScreen(
     apps: List<AppInfo>,
+    appListIssue: AppListIssue?,
+    onGrantAccess: () -> Unit,
+    onReload: () -> Unit,
     isLoading: Boolean,
     blacklist: Set<String>,
     perAppProxyEnabled: Boolean,
@@ -190,10 +203,10 @@ fun PerAppProxyScreen(
             )
         }
     ) { innerPadding ->
+        AdaptiveContent(Modifier.padding(innerPadding)) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
         ) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
@@ -257,6 +270,7 @@ fun PerAppProxyScreen(
                 }
             }
             AppDivider()
+            appListIssue?.let { AppListNotice(it, onGrantAccess, onReload) }
 
             LazyColumn(
                 state = listState,
@@ -277,6 +291,7 @@ fun PerAppProxyScreen(
                     ItemDivider()
                 }
             }
+        }
         }
     }
 

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_list_unavailable">Không thể đọc danh sách ứng dụng</string>
+    <string name="app_list_permission_help">Cho phép đọc danh sách ứng dụng trong quyền hệ thống rồi thử lại. Danh sách dùng để chọn ứng dụng sử dụng proxy.</string>
+    <string name="app_list_load_failed">Không tải được danh sách ứng dụng. Hãy thử lại.</string>
+    <string name="app_list_grant_access">Quyền đọc ứng dụng</string>
+    <string name="app_list_settings_unavailable">Không mở được cài đặt quyền hệ thống.</string>
+    <string name="action_retry">Thử lại</string>
+    <string name="app_picker_unknown_summary">Lưu lượng không xác định được ứng dụng</string>
+    <string name="home_new_manual">Tạo thủ công</string>
+    <string name="home_choose_protocol">Chọn loại cấu hình</string>
+    <string name="home_select_profile">Chọn cấu hình</string>
+    <string name="home_search_empty">Không có cấu hình phù hợp</string>
+    <string name="log_empty_title">Chưa có nhật ký</string>
+    <string name="log_empty_hint">Nhật ký xuất hiện khi sử dụng dịch vụ. Làm mới để xem mục mới.</string>
+    <string name="import_failure_detail">Chưa nhập cấu hình nào. Kiểm tra liên kết hoặc JSON. JSON đầy đủ cần có inbounds, outbounds và routing.</string>
+    <string name="form_basic">Kết nối</string>
+    <string name="form_transport">Truyền tải</string>
+    <string name="form_security">Bảo mật</string>
+    <string name="form_advanced">Tùy chọn nâng cao</string>
+    <string name="routing_condition_count">%1$d điều kiện</string>
+    <string name="sub_editor_hint">Chọn nhóm để sửa hoặc thêm đăng ký.</string>
+    <string name="json_format">Định dạng JSON</string>
+    <string name="json_invalid">JSON không hợp lệ. Kiểm tra cú pháp trước khi lưu.</string>
+    <string name="server_policy_group">Nhóm chính sách</string>
+    <string name="server_proxy_chain">Chuỗi proxy</string>
+    <string name="server_custom">JSON tùy chỉnh</string>
+    <string name="json_invalid_location">JSON lỗi tại dòng %1$d, cột %2$d.</string>
+    <string name="settings_section_interface">Giao diện</string>
+    <string name="settings_section_vpn">VPN</string>
+    <string name="settings_section_core">Lõi và DNS</string>
+    <string name="settings_section_mux">Ghép kênh</string>
+    <string name="settings_section_fragment">Phân mảnh</string>
+    <string name="settings_section_observatory">Giám sát</string>
+    <string name="settings_section_advanced">Nâng cao</string>
+    <string name="settings_section_mode">Chế độ</string>
+    <string name="routing_enable_rule">Bật quy tắc: %1$s</string>
+</resources>

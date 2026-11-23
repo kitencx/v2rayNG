@@ -1,6 +1,14 @@
 package com.v2ray.ang.ui.main
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.heightIn
@@ -46,6 +54,7 @@ fun MainTopBar(
 ) {
     var showImportMenu by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
+    var showManualTypes by remember { mutableStateOf(false) }
     val importMenuScrollState = rememberScrollState()
     val moreMenuScrollState = rememberScrollState()
     val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -99,6 +108,10 @@ fun MainTopBar(
                         text = { Text(stringResource(R.string.home_import_text)) },
                         onClick = { showImportMenu = false; onImportText() },
                     )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.home_new_manual)) },
+                        onClick = { showImportMenu = false; showManualTypes = true },
+                    )
                     ImportMenuContent(
                         hasCamera = hasCamera,
                         onAction = { action ->
@@ -129,4 +142,24 @@ fun MainTopBar(
             }
         }
     )
+    if (showManualTypes) {
+        AlertDialog(
+            onDismissRequest = { showManualTypes = false },
+            title = { Text(stringResource(R.string.home_choose_protocol)) },
+            text = {
+                LazyVerticalGrid(columns = GridCells.Fixed(2),
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(ImportMenuAction.entries.filter { it.action is MainAction.ImportManually }, key = { it.name }) { item ->
+                        OutlinedButton(onClick = { showManualTypes = false; onAction(item.action) }) {
+                            Text(stringResource(item.labelRes))
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showManualTypes = false }) { Text(stringResource(R.string.action_cancel)) } },
+        )
+    }
+
 }

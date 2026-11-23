@@ -1,5 +1,16 @@
 package com.v2ray.ang.ui.server
 
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import androidx.activity.viewModels
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import android.os.Bundle
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.horizontalScroll
@@ -64,6 +75,7 @@ import com.v2ray.ang.fmt.CustomOutboundFmt
 import com.v2ray.ang.handler.AngConfigManager
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.ui.base.BaseComponentActivity
+import com.v2ray.ang.ui.compose.AppIconAction
 import com.v2ray.ang.ui.compose.AppTopBar
 import com.v2ray.ang.ui.compose.DeleteConfirmDialog
 import com.v2ray.ang.ui.compose.FormTextField
@@ -74,6 +86,7 @@ import com.v2ray.ang.util.LogUtil
 import kotlinx.coroutines.flow.collectLatest
 
 class ServerCustomConfigActivity : BaseComponentActivity() {
+    private val editorViewModel: JsonEditorViewModel by viewModels()
 
     private val editGuid by lazy { intent.getStringExtra("guid").orEmpty() }
     private val isRunning by lazy {
@@ -98,7 +111,10 @@ class ServerCustomConfigActivity : BaseComponentActivity() {
 
     @Composable
     override fun ScreenContent() {
+        val formatResult by editorViewModel.formatResult.collectAsStateWithLifecycle()
         ServerCustomConfigScreen(
+            formatResult = formatResult,
+            onFormat = editorViewModel::format,
             editGuid = editGuid,
             isRunning = isRunning,
             initialRemarks = initialRemarks,
@@ -179,15 +195,21 @@ class ServerCustomConfigActivity : BaseComponentActivity() {
             return false
         }
 
-        if (editGuid == MmkvManager.getSelectServer()) {
+        if (isProfileDeletionBlocked(editGuid, editGuid, isRunning)) {
             toast(R.string.toast_action_not_allowed)
             return false
         }
 
-        MmkvManager.removeServer(editGuid)
-
-        ProfileEditorResult.run {
-            finishDeleted(editGuid)
+        lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) { MmkvManager.removeServer(editGuid) }
+                ProfileEditorResult.run { finishDeleted(editGuid) }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                LogUtil.e(com.v2ray.ang.AppConfig.TAG, "Failed to delete profile: $editGuid", error)
+                toast(R.string.toast_failure)
+            }
         }
 
         return true
@@ -204,7 +226,9 @@ private object EditorConstants {
 }
 
 @Composable
-fun ServerCustomConfigScreen(
+internal fun ServerCustomConfigScreen(
+    formatResult: JsonFormatResult?,
+    onFormat: (String) -> Unit,
     editGuid: String,
     isRunning: Boolean,
     initialRemarks: String,
@@ -216,6 +240,20 @@ fun ServerCustomConfigScreen(
     var remarks by rememberSaveable { mutableStateOf(initialRemarks) }
     var isRemarksError by rememberSaveable { mutableStateOf(false) }
     val textFieldState = rememberTextFieldState(initialText = initialContent)
+    val editorSource = textFieldState.text.toString()
+    val colors = MaterialTheme.colorScheme
+    val highlighted by produceState(AnnotatedString(editorSource), editorSource, colors) {
+        value = withContext(Dispatchers.Default) {
+            highlightJson(editorSource, colors.primary, colors.tertiary, colors.secondary)
+        }
+    }
+    LaunchedEffect(formatResult) {
+        val result = formatResult
+        if (result?.formatted != null && result.source == textFieldState.text.toString()) {
+            textFieldState.edit { replace(0, length, result.formatted); selection = TextRange(0) }
+        }
+    }
+    val jsonError = formatResult?.takeIf { it.formatted == null && it.source == editorSource }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     val showDelete = editGuid.isNotEmpty() && !isRunning
 
@@ -322,9 +360,11 @@ fun ServerCustomConfigScreen(
         contentWindowInsets = WindowInsets(0),
         topBar = {
             AppTopBar(
-                title = EConfigType.CUSTOM.toString(),
+                title = stringResource(R.string.server_custom),
                 onBackClick = onBackClick,
                 actions = {
+                    AppIconAction(stringResource(R.string.json_format), R.drawable.ic_source_code_24dp,
+                        onClick = { onFormat(textFieldState.text.toString()) })
                     if (showDelete) {
                         IconButton(onClick = { showDeleteConfirm = true }) {
                             Icon(
@@ -333,7 +373,8 @@ fun ServerCustomConfigScreen(
                             )
                         }
                     }
-                    IconButton(onClick = {
+                    AppIconAction(label = stringResource(R.string.acc_save), icon = R.drawable.ic_fab_check,
+                        emphasized = true, onClick = {
                         val remarksErr = remarks.isBlank()
                         isRemarksError = remarksErr
 
@@ -341,12 +382,8 @@ fun ServerCustomConfigScreen(
                         if (!hasError) {
                             onSave(remarks, textFieldState.text.toString())
                         }
-                    }) {
-                        Icon(
-                            painterResource(R.drawable.ic_fab_check),
-                            contentDescription = stringResource(R.string.acc_save)
-                        )
-                    }
+
+                    })
                 }
             )
         },
@@ -365,6 +402,12 @@ fun ServerCustomConfigScreen(
                 isError = isRemarksError
             )
 
+            if (jsonError != null) {
+                Text(if (jsonError.line != null && jsonError.column != null)
+                    stringResource(R.string.json_invalid_location, jsonError.line, jsonError.column)
+                    else stringResource(R.string.json_invalid),
+                    color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
+            }
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -445,7 +488,7 @@ fun ServerCustomConfigScreen(
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = EditorConstants.FONT_SIZE,
                                 lineHeight = EditorConstants.LINE_HEIGHT,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = Color.Transparent
                             ),
                             lineLimits = TextFieldLineLimits.MultiLine(),
                             cursorBrush = SolidColor(MaterialTheme.colorScheme.secondary),
@@ -467,6 +510,10 @@ fun ServerCustomConfigScreen(
                                             )
                                         )
                                     }
+                                    Text(highlighted, modifier = Modifier.clearAndSetSemantics {}, softWrap = false,
+                                        style = TextStyle(fontFamily = FontFamily.Monospace,
+                                            fontSize = EditorConstants.FONT_SIZE, lineHeight = EditorConstants.LINE_HEIGHT,
+                                            color = MaterialTheme.colorScheme.onSurface))
                                     innerTextField()
                                 }
                             }

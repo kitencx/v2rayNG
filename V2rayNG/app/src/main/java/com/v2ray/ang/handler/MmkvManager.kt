@@ -409,6 +409,7 @@ object MmkvManager {
         }
         profileFullStorage.remove(guid)
         serverAffStorage.remove(guid)
+        serverRawStorage.remove(guid)
     }
 
     /**
@@ -514,6 +515,7 @@ object MmkvManager {
         profileFullStorage.clearAll()
         serverAffStorage.clearAll()
         serverRawStorage.clearAll()
+        mainStorage.remove(KEY_SELECTED_SERVER)
 
         decodeSubscriptions().forEach { sub ->
             encodeServerList(mutableListOf(), sub.guid)

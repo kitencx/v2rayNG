@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.viewModels
 import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,7 +31,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.v2ray.ang.R
 import com.v2ray.ang.dto.AppInfo
-import com.v2ray.ang.ui.base.BaseComponentActivity
+import com.v2ray.ang.ui.base.AppListActivity
+import com.v2ray.ang.ui.compose.AdaptiveContent
+import com.v2ray.ang.ui.compose.AppListNotice
+import com.v2ray.ang.util.AppListIssue
 import com.v2ray.ang.ui.compose.AppDropdownMenuItems
 import com.v2ray.ang.ui.compose.AppListItem
 import com.v2ray.ang.ui.compose.AppTopBar
@@ -43,7 +47,7 @@ private enum class AppPickerMenuAction(@StringRes val labelRes: Int) {
     InvertSelection(R.string.menu_item_invert_selection)
 }
 
-class AppPickerActivity : BaseComponentActivity() {
+class AppPickerActivity : AppListActivity() {
 
     companion object {
         private const val EXTRA_SELECTED_PACKAGES = "selected_packages"
@@ -69,7 +73,6 @@ class AppPickerActivity : BaseComponentActivity() {
         super.onCreate(savedInstanceState)
         val initial = intent.getStringArrayListExtra(EXTRA_SELECTED_PACKAGES).orEmpty()
         viewModel.initialize(initial)
-        viewModel.loadApps(this)
     }
 
     override fun finish() {
@@ -82,15 +85,23 @@ class AppPickerActivity : BaseComponentActivity() {
         super.finish()
     }
 
+    override fun reloadAppList() {
+        viewModel.loadApps(this, forceReload = true)
+    }
+
     @Composable
     override fun ScreenContent() {
         val apps by viewModel.displayedApps.collectAsStateWithLifecycle()
+        val appListIssue by viewModel.appListIssue.collectAsStateWithLifecycle()
         val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
         val selectedPackages by viewModel.selectedPackages.collectAsStateWithLifecycle()
 
         AppPickerScreen(
             title = resolveScreenTitle(),
             apps = apps,
+            appListIssue = appListIssue,
+            onGrantAccess = { requestAppListAccess(appListIssue) },
+            onReload = { reloadAppList() },
             isLoading = isLoading,
             selectedPackages = selectedPackages,
             onBackClick = { finish() },
@@ -110,6 +121,9 @@ class AppPickerActivity : BaseComponentActivity() {
 fun AppPickerScreen(
     title: String,
     apps: List<AppInfo>,
+    appListIssue: AppListIssue?,
+    onGrantAccess: () -> Unit,
+    onReload: () -> Unit,
     isLoading: Boolean,
     selectedPackages: Set<String>,
     onBackClick: () -> Unit,
@@ -159,7 +173,7 @@ fun AppPickerScreen(
                         IconButton(onClick = { showMenu = true }) {
                             Icon(
                                 painterResource(R.drawable.ic_more_vert_24dp),
-                                contentDescription = null
+                                contentDescription = stringResource(R.string.acc_more)
                             )
                         }
                         DropdownMenu(
@@ -180,11 +194,13 @@ fun AppPickerScreen(
             )
         }
     ) { innerPadding ->
+        AdaptiveContent(Modifier.padding(innerPadding)) {
+        Column {
+        appListIssue?.let { AppListNotice(it, onGrantAccess, onReload) }
         LazyColumn(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
                 .verticalScrollbar(listState),
             contentPadding = NavigationBarsBottomPadding()
         ) {
@@ -199,6 +215,8 @@ fun AppPickerScreen(
                 )
                 ItemDivider()
             }
+        }
+        }
         }
     }
 }

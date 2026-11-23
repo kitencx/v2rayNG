@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_list_unavailable">無法讀取應用程式清單</string>
+    <string name="app_list_permission_help">請在系統權限管理中允許「取得應用程式清單」，然後重試。此權限用於選擇哪些應用程式使用代理。</string>
+    <string name="app_list_load_failed">應用程式清單載入失敗，請重試。</string>
+    <string name="app_list_grant_access">應用程式清單權限</string>
+    <string name="app_list_settings_unavailable">無法開啟系統權限設定。</string>
+    <string name="action_retry">重試</string>
+    <string name="app_picker_unknown_summary">無法關聯至已安裝應用程式的流量</string>
+    <string name="home_new_manual">手動新增</string>
+    <string name="home_choose_protocol">選擇設定類型</string>
+    <string name="home_select_profile">選擇一個設定</string>
+    <string name="home_search_empty">沒有符合的設定</string>
+    <string name="log_empty_title">暫無日誌</string>
+    <string name="log_empty_hint">使用服務後會產生日誌，也可以重新整理查看新記錄。</string>
+    <string name="import_failure_detail">未匯入任何設定。請檢查連結格式或 JSON；完整 JSON 設定需包含 inbounds、outbounds 和 routing。</string>
+    <string name="form_basic">連線資訊</string>
+    <string name="form_transport">傳輸設定</string>
+    <string name="form_security">安全設定</string>
+    <string name="form_advanced">進階選項</string>
+    <string name="routing_condition_count">%1$d 個比對條件</string>
+    <string name="sub_editor_hint">選擇左側群組進行編輯，或新增訂閱。</string>
+    <string name="json_format">格式化 JSON</string>
+    <string name="json_invalid">JSON 格式有誤，請檢查語法後再儲存。</string>
+    <string name="server_policy_group">策略群組</string>
+    <string name="server_proxy_chain">鏈式代理</string>
+    <string name="server_custom">自訂 JSON</string>
+    <string name="json_invalid_location">JSON 第 %1$d 行、第 %2$d 欄有語法錯誤。</string>
+    <string name="settings_section_interface">介面</string>
+    <string name="settings_section_vpn">VPN</string>
+    <string name="settings_section_core">核心與 DNS</string>
+    <string name="settings_section_mux">多路複用</string>
+    <string name="settings_section_fragment">分片</string>
+    <string name="settings_section_observatory">連線觀測</string>
+    <string name="settings_section_advanced">進階</string>
+    <string name="settings_section_mode">模式</string>
+    <string name="routing_enable_rule">啟用規則：%1$s</string>
+</resources>

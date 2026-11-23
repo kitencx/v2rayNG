@@ -18,6 +18,7 @@ import com.v2ray.ang.extension.toast
 import com.v2ray.ang.extension.toastSuccess
 import com.v2ray.ang.handler.CertificateFingerprintManager
 import com.v2ray.ang.ui.compose.FormDropdownField
+import com.v2ray.ang.ui.compose.FormSection
 import com.v2ray.ang.ui.compose.FormTextField
 import com.v2ray.ang.ui.compose.SettingsSwitchItem
 import kotlinx.coroutines.Dispatchers
@@ -42,8 +43,10 @@ class ServerHysteria2Activity : BaseServerActivity() {
             title = serverConfigType.toString(),
             onSaveClick = { saveServer(uiState) }
         ) {
-            CommonBasicFields(uiState)
-            Hysteria2ProtocolFields(uiState)
+            FormSection(stringResource(R.string.form_basic)) {
+                CommonBasicFields(uiState)
+                Hysteria2ProtocolFields(uiState)
+            }
 
         }
     }

@@ -54,7 +54,7 @@ fun FormTextField(
             placeholder = placeholder?.let { { Text(it) } },
             isError = isError,
             supportingText = supportingText?.let { { Text(it) } },
-            singleLine = false,
+            singleLine = maxLines == 1,
             maxLines = maxLines,
             enabled = enabled,
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType),

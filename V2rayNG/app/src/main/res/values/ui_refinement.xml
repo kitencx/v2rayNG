@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_list_unavailable">Installed apps unavailable</string>
+    <string name="app_list_permission_help">Allow access to the installed app list in system permissions, then retry. This list is needed to choose which apps use the proxy.</string>
+    <string name="app_list_load_failed">The app list could not be loaded. Retry to load it again.</string>
+    <string name="app_list_grant_access">App list permissions</string>
+    <string name="app_list_settings_unavailable">System permission settings are unavailable.</string>
+    <string name="action_retry">Retry</string>
+    <string name="app_picker_unknown_summary">Traffic that cannot be linked to an installed app</string>
+    <string name="home_new_manual">Create manually</string>
+    <string name="home_choose_protocol">Choose a configuration type</string>
+    <string name="home_select_profile">Select a configuration</string>
+    <string name="home_search_empty">No matching configurations</string>
+    <string name="log_empty_title">No log entries</string>
+    <string name="log_empty_hint">Logs appear when the service is used. Refresh to check for new entries.</string>
+    <string name="import_failure_detail">No configuration was imported. Check the link format or JSON. Full JSON configurations must include inbounds, outbounds and routing.</string>
+    <string name="form_basic">Connection</string>
+    <string name="form_transport">Transport</string>
+    <string name="form_security">Security</string>
+    <string name="form_advanced">Advanced options</string>
+    <string name="routing_condition_count">%1$d matching conditions</string>
+    <string name="sub_editor_hint">Select a group to edit, or add a subscription.</string>
+    <string name="json_format">Format JSON</string>
+    <string name="json_invalid">Invalid JSON. Check the syntax before saving.</string>
+    <string name="server_policy_group">Policy group</string>
+    <string name="server_proxy_chain">Proxy chain</string>
+    <string name="server_custom">Custom JSON</string>
+    <string name="json_invalid_location">Invalid JSON at line %1$d, column %2$d.</string>
+    <string name="settings_section_interface">Interface</string>
+    <string name="settings_section_vpn">VPN</string>
+    <string name="settings_section_core">Core and DNS</string>
+    <string name="settings_section_mux">Multiplexing</string>
+    <string name="settings_section_fragment">Fragmentation</string>
+    <string name="settings_section_observatory">Observatory</string>
+    <string name="settings_section_advanced">Advanced</string>
+    <string name="settings_section_mode">Mode</string>
+    <string name="routing_enable_rule">Enable rule: %1$s</string>
+</resources>

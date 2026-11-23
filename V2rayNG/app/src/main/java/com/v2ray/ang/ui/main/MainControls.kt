@@ -2,7 +2,9 @@ package com.v2ray.ang.ui.main
 
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.platform.LocalContext
+import com.v2ray.ang.extension.toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
@@ -43,6 +45,7 @@ internal fun MainControl(
 ) {
     var focused by remember { mutableStateOf(false) }
     val colors = MaterialTheme.colorScheme
+    val context = LocalContext.current
     val background = when {
         focused && tv -> colors.inverseSurface
         emphasized && enabled -> colors.primary
@@ -63,8 +66,9 @@ internal fun MainControl(
             .clip(RoundedCornerShape(12.dp))
             .background(background)
             .onFocusChanged { focused = it.isFocused }
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
-            .semantics { selected?.let { this.selected = it } }
+            .combinedClickable(enabled = enabled, role = Role.Button, onClick = onClick,
+                onLongClick = if (iconOnly) ({ context.toast(label) }) else null)
+            .semantics(mergeDescendants = true) { selected?.let { this.selected = it } }
             .padding(horizontal = if (tv) 15.dp else 12.dp, vertical = 9.dp),
         horizontalArrangement = if (iconOnly) Arrangement.Center else Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,

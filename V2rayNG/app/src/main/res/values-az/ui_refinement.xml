@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_list_unavailable">Tətbiq siyahısı əlçatan deyil</string>
+    <string name="app_list_permission_help">Sistem icazələrində tətbiq siyahısına girişə icazə verin və yenidən cəhd edin. Siyahı proksidən istifadə edən tətbiqləri seçmək üçündür.</string>
+    <string name="app_list_load_failed">Tətbiq siyahısı yüklənmədi. Yenidən cəhd edin.</string>
+    <string name="app_list_grant_access">Tətbiq siyahısı icazəsi</string>
+    <string name="app_list_settings_unavailable">Sistem icazə ayarları əlçatan deyil.</string>
+    <string name="action_retry">Yenidən cəhd et</string>
+    <string name="app_picker_unknown_summary">Müəyyən tətbiqlə əlaqələndirilməyən trafik</string>
+    <string name="home_new_manual">Əl ilə yarat</string>
+    <string name="home_choose_protocol">Konfiqurasiya növünü seç</string>
+    <string name="home_select_profile">Konfiqurasiya seçin</string>
+    <string name="home_search_empty">Uyğun konfiqurasiya yoxdur</string>
+    <string name="log_empty_title">Jurnal boşdur</string>
+    <string name="log_empty_hint">Xidmət istifadə edildikdə qeydlər yaranır. Yeni qeydlər üçün yeniləyin.</string>
+    <string name="import_failure_detail">Konfiqurasiya idxal edilmədi. Keçidi və ya JSON formatını yoxlayın. Tam JSON inbounds, outbounds və routing sahələrini daxil etməlidir.</string>
+    <string name="form_basic">Bağlantı</string>
+    <string name="form_transport">Nəqliyyat</string>
+    <string name="form_security">Təhlükəsizlik</string>
+    <string name="form_advanced">Əlavə seçimlər</string>
+    <string name="routing_condition_count">%1$d uyğunluq şərti</string>
+    <string name="sub_editor_hint">Redaktə üçün qrup seçin və ya abunəlik əlavə edin.</string>
+    <string name="json_format">JSON formatla</string>
+    <string name="json_invalid">Yanlış JSON. Saxlamazdan əvvəl sintaksisi yoxlayın.</string>
+    <string name="server_policy_group">Siyasət qrupu</string>
+    <string name="server_proxy_chain">Proksi zənciri</string>
+    <string name="server_custom">Fərdi JSON</string>
+    <string name="json_invalid_location">JSON xətası: sətir %1$d, sütun %2$d.</string>
+    <string name="settings_section_interface">İnterfeys</string>
+    <string name="settings_section_vpn">VPN</string>
+    <string name="settings_section_core">Nüvə və DNS</string>
+    <string name="settings_section_mux">Multipleksləşdirmə</string>
+    <string name="settings_section_fragment">Fraqmentləşdirmə</string>
+    <string name="settings_section_observatory">Müşahidə</string>
+    <string name="settings_section_advanced">Əlavə</string>
+    <string name="settings_section_mode">Rejim</string>
+    <string name="routing_enable_rule">Qaydanı aktiv et: %1$s</string>
+</resources>

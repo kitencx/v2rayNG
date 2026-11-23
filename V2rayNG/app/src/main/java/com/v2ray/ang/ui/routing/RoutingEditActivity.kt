@@ -1,6 +1,8 @@
 package com.v2ray.ang.ui.routing
 
 import android.app.Activity
+import androidx.activity.viewModels
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.os.Bundle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import com.v2ray.ang.ui.compose.AdaptiveContent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,16 +37,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.lifecycleScope
 import com.v2ray.ang.AppConfig.BUILTIN_OUTBOUND_TAGS
 import com.v2ray.ang.AppConfig.TAG_PROXY
 import com.v2ray.ang.R
 import com.v2ray.ang.dto.entities.RulesetItem
 import com.v2ray.ang.extension.nullIfBlank
-import com.v2ray.ang.extension.toastSuccess
-import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.ui.apppicker.AppPickerActivity
 import com.v2ray.ang.ui.base.BaseComponentActivity
+import com.v2ray.ang.ui.compose.AppIconAction
 import com.v2ray.ang.ui.compose.AppTopBar
 import com.v2ray.ang.ui.compose.DeleteConfirmDialog
 import com.v2ray.ang.ui.compose.FormDropdownField
@@ -52,67 +53,38 @@ import com.v2ray.ang.ui.compose.NavigationBarsSpacer
 import com.v2ray.ang.ui.compose.ServerSelectListDialog
 import com.v2ray.ang.ui.compose.SettingsSwitchItem
 import com.v2ray.ang.ui.compose.verticalScrollbar
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.util.UUID
 
 private val ROUTING_NETWORK_OPTIONS = listOf("tcp", "udp", "tcp,udp")
 
 class RoutingEditActivity : BaseComponentActivity() {
-    private val position by lazy { intent.getIntExtra("position", -1) }
-
-    private var initial: RulesetItem? = null
-    private lateinit var outboundSuggestions: List<String>
-    private var canUseProcess: Boolean = false
+    private val viewModel: RoutingSettingsViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        initial = SettingsManager.getRoutingRuleset(position)
-        outboundSuggestions = SettingsManager.getProfileRemarks()
-        canUseProcess = SettingsManager.canUseProcessRouting()
+        viewModel.loadEditor(intent.getStringExtra("ruleId"), intent.getIntExtra("position", -1)) { finish() }
     }
 
     @Composable
     override fun ScreenContent() {
-        RoutingEditScreen(
-            position = position,
-            initial = initial,
-            outboundSuggestions = outboundSuggestions,
-            canUseProcess = canUseProcess,
-            onBackClick = { finish() },
-            onSave = { saveServer(it) },
-            onDelete = { deleteServer() }
-        )
-    }
-
-    private fun saveServer(rulesetItem: RulesetItem): Boolean {
-        if (rulesetItem.remarks.isNullOrEmpty()) {
-            return false
+        val state by viewModel.editorState.collectAsStateWithLifecycle()
+        val editor = state
+        if (editor == null) {
+            androidx.compose.material3.CircularProgressIndicator(Modifier.padding(24.dp))
+        } else {
+            RoutingEditScreen(
+                existing = editor.initial != null, initial = editor.initial,
+                outboundSuggestions = editor.suggestions, canUseProcess = editor.canUseProcess,
+                onBackClick = { finish() }, onSave = { viewModel.saveEditor(it) { finish() } },
+                onDelete = { viewModel.deleteEditor { finish() } },
+            )
         }
-        if (position < 0 && rulesetItem.id.isEmpty()) {
-            rulesetItem.id = UUID.randomUUID().toString()
-        }
-        SettingsManager.saveRoutingRuleset(position, rulesetItem)
-        toastSuccess(R.string.toast_success)
-        finish()
-        return true
-    }
-
-    private fun deleteServer(): Boolean {
-        if (position >= 0) {
-            lifecycleScope.launch(Dispatchers.IO) {
-                SettingsManager.removeRoutingRuleset(position)
-                withContext(Dispatchers.Main) { finish() }
-            }
-        }
-        return true
     }
 }
 
 @Composable
 fun RoutingEditScreen(
-    position: Int,
+    existing: Boolean,
     initial: RulesetItem?,
     outboundSuggestions: List<String>,
     canUseProcess: Boolean,
@@ -150,7 +122,7 @@ fun RoutingEditScreen(
     }
 
     fun buildRuleset(): RulesetItem {
-        val rulesetItem = SettingsManager.getRoutingRuleset(position) ?: RulesetItem()
+        val rulesetItem = initial?.copy() ?: RulesetItem()
         rulesetItem.apply {
             this.remarks = remarks
             this.locked = locked
@@ -188,7 +160,7 @@ fun RoutingEditScreen(
                 title = stringResource(R.string.routing_settings_rule_title),
                 onBackClick = onBackClick,
                 actions = {
-                    if (position >= 0) {
+                    if (existing) {
                         IconButton(onClick = { showDeleteConfirm = true }) {
                             Icon(
                                 painterResource(R.drawable.ic_delete_24dp),
@@ -196,7 +168,8 @@ fun RoutingEditScreen(
                             )
                         }
                     }
-                    IconButton(onClick = {
+                    AppIconAction(label = stringResource(R.string.acc_save), icon = R.drawable.ic_fab_check,
+                        emphasized = true, onClick = {
                         val remarksErr = remarks.isBlank()
                         isRemarksError = remarksErr
 
@@ -204,21 +177,18 @@ fun RoutingEditScreen(
                         if (!hasError) {
                             onSave(buildRuleset())
                         }
-                    }) {
-                        Icon(
-                            painterResource(R.drawable.ic_fab_check),
-                            contentDescription = stringResource(R.string.acc_save)
-                        )
-                    }
+
+                    })
                 }
             )
         }
     ) { innerPadding ->
+        AdaptiveContent(Modifier.padding(innerPadding).consumeWindowInsets(innerPadding)) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .consumeWindowInsets(innerPadding)
+
+
                 .imePadding()
                 .verticalScroll(scrollState)
                 .verticalScrollbar(scrollState)
@@ -351,5 +321,6 @@ fun RoutingEditScreen(
                 onDismiss = { showOutboundDialog = false }
             )
         }
+            }
     }
 }

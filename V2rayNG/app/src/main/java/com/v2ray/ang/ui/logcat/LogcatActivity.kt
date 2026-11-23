@@ -42,6 +42,7 @@ import com.v2ray.ang.AppConfig
 import com.v2ray.ang.R
 import com.v2ray.ang.extension.toastError
 import com.v2ray.ang.ui.base.BaseComponentActivity
+import com.v2ray.ang.ui.compose.AdaptiveContent
 import com.v2ray.ang.ui.compose.AppTopBar
 import com.v2ray.ang.ui.compose.ItemDivider
 import com.v2ray.ang.ui.compose.NavigationBarsBottomPadding
@@ -203,11 +204,18 @@ fun LogcatScreen(
             }
         }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-        ) {
+        AdaptiveContent(Modifier.padding(innerPadding)) {
+        Column(Modifier.fillMaxSize()) {
+            if (!isLoading && logs.isEmpty()) {
+                Column(Modifier.fillMaxSize().padding(32.dp),
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
+                    horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                    Text(stringResource(if (searchQuery.isBlank()) R.string.log_empty_title else R.string.home_search_empty),
+                        style = MaterialTheme.typography.titleLarge)
+                    if (searchQuery.isBlank()) Text(stringResource(R.string.log_empty_hint),
+                        modifier = Modifier.padding(top = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
             LazyColumn(
                 state = listState,
                 modifier = Modifier
@@ -220,6 +228,7 @@ fun LogcatScreen(
                     ItemDivider()
                 }
             }
+        }
         }
     }
 }

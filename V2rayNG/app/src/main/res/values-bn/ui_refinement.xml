@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_list_unavailable">অ্যাপের তালিকা পাওয়া যাচ্ছে না</string>
+    <string name="app_list_permission_help">সিস্টেমের অনুমতিতে অ্যাপের তালিকা পড়ার অনুমতি দিয়ে আবার চেষ্টা করুন। কোন অ্যাপ প্রক্সি ব্যবহার করবে তা বাছতে এই তালিকা লাগে।</string>
+    <string name="app_list_load_failed">অ্যাপের তালিকা লোড হয়নি। আবার চেষ্টা করুন।</string>
+    <string name="app_list_grant_access">অ্যাপ তালিকার অনুমতি</string>
+    <string name="app_list_settings_unavailable">সিস্টেমের অনুমতি সেটিংস খোলা যাচ্ছে না।</string>
+    <string name="action_retry">আবার চেষ্টা</string>
+    <string name="app_picker_unknown_summary">কোনো অ্যাপের সঙ্গে শনাক্ত করা যায়নি এমন ট্রাফিক</string>
+    <string name="home_new_manual">হাতে তৈরি করুন</string>
+    <string name="home_choose_protocol">কনফিগারেশনের ধরন বাছুন</string>
+    <string name="home_select_profile">একটি কনফিগারেশন বাছুন</string>
+    <string name="home_search_empty">মিলে যাওয়া কনফিগারেশন নেই</string>
+    <string name="log_empty_title">এখনো কোনো লগ নেই</string>
+    <string name="log_empty_hint">সেবা ব্যবহার করলে লগ তৈরি হয়। নতুন লগ দেখতে রিফ্রেশ করুন।</string>
+    <string name="import_failure_detail">কোনো কনফিগারেশন আমদানি হয়নি। লিংক বা JSON যাচাই করুন। পূর্ণ JSON-এ inbounds, outbounds ও routing থাকতে হবে।</string>
+    <string name="form_basic">সংযোগ</string>
+    <string name="form_transport">পরিবহন</string>
+    <string name="form_security">নিরাপত্তা</string>
+    <string name="form_advanced">উন্নত বিকল্প</string>
+    <string name="routing_condition_count">%1$dটি মেলার শর্ত</string>
+    <string name="sub_editor_hint">সম্পাদনার জন্য গ্রুপ বাছুন বা সাবস্ক্রিপশন যোগ করুন।</string>
+    <string name="json_format">JSON সাজান</string>
+    <string name="json_invalid">অবৈধ JSON। সংরক্ষণের আগে সিনট্যাক্স যাচাই করুন।</string>
+    <string name="server_policy_group">নীতি গ্রুপ</string>
+    <string name="server_proxy_chain">প্রক্সি চেইন</string>
+    <string name="server_custom">নিজস্ব JSON</string>
+    <string name="json_invalid_location">JSON ত্রুটি: লাইন %1$d, কলাম %2$d।</string>
+    <string name="settings_section_interface">ইন্টারফেস</string>
+    <string name="settings_section_vpn">VPN</string>
+    <string name="settings_section_core">কোর ও DNS</string>
+    <string name="settings_section_mux">মাল্টিপ্লেক্সিং</string>
+    <string name="settings_section_fragment">ফ্র্যাগমেন্টেশন</string>
+    <string name="settings_section_observatory">সংযোগ পর্যবেক্ষণ</string>
+    <string name="settings_section_advanced">উন্নত</string>
+    <string name="settings_section_mode">মোড</string>
+    <string name="routing_enable_rule">নিয়ম চালু করুন: %1$s</string>
+</resources>

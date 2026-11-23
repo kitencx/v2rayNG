@@ -19,6 +19,7 @@ import com.v2ray.ang.extension.isComplexType
 import com.v2ray.ang.extension.matchesPattern
 import com.v2ray.ang.extension.moveItem
 import com.v2ray.ang.handler.SubscriptionInfoParser
+import com.v2ray.ang.ui.server.isProfileDeletionBlocked
 import com.v2ray.ang.ui.base.BaseViewModel
 import com.v2ray.ang.util.LogUtil
 import com.v2ray.ang.util.Utils
@@ -303,9 +304,10 @@ class MainViewModel(
             is MainAction.ImportSubscriptionUrl -> {
                 val url = action.url.trim()
                 if (Utils.isValidSubUrl(url)) importBatchConfig(url)
-                else toastError(R.string.toast_invalid_url)
+                else _uiState.update { it.copy(importState = MainImportState.InvalidUrl) }
             }
             is MainAction.ImportBatchConfig -> importBatchConfig(action.configText)
+            MainAction.DismissImportResult -> _uiState.update { it.copy(importState = MainImportState.Idle) }
             MainAction.LocateHandled -> consumeLocateTarget()
             is MainAction.ShareQRCode -> {
                 val bitmap = dataSource.share2QRCode(action.guid)
@@ -533,12 +535,15 @@ class MainViewModel(
 
     // ---------- Business actions (coroutine-based) ----------
     private fun importBatchConfig(configText: String) {
+        if (uiState.value.importState == MainImportState.Working) return
+        _uiState.update { it.copy(importState = MainImportState.Working) }
         launchLoading {
             withContext(ioDispatcher) {
                 try {
                     val (count, countSub) = dataSource.importBatchConfig(
                         configText, uiState.value.selectedGroupId, true
                     )
+                    _uiState.update { it.copy(importState = importResultState(count, countSub)) }
                     when {
                         count > 0 -> {
                             toast(dataSource.getString(R.string.title_import_config_count, count))
@@ -546,13 +551,13 @@ class MainViewModel(
                         }
 
                         countSub > 0 -> setupGroupTab(forceRefresh = true)
-                        else -> toastError(R.string.toast_failure)
+                        else -> Unit
                     }
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (e: Exception) {
                     LogUtil.e(AppConfig.TAG, "Failed to import batch config", e)
-                    toastError(R.string.toast_failure)
+                    _uiState.update { it.copy(importState = MainImportState.Failed) }
                 }
             }
         }
@@ -629,10 +634,12 @@ class MainViewModel(
             withContext(ioDispatcher) {
                 try {
                     val count =
-                        if (uiState.value.selectedGroupId.isEmpty() && keywordFilter.isEmpty()) {
+                        if (uiState.value.selectedGroupId.isEmpty() && keywordFilter.isEmpty() && !uiState.value.isRunning) {
                             dataSource.removeAllServer()
                         } else {
-                            val guids = currentServers().map { it.guid }
+                            val guids = currentServers().map { it.guid }.filterNot {
+                                isProfileDeletionBlocked(it, uiState.value.selectedGuid, uiState.value.isRunning)
+                            }
                             guids.forEach { dataSource.removeServer(it) }
                             guids.size
                         }
@@ -657,11 +664,13 @@ class MainViewModel(
                 try {
                     val seen = HashSet<ProfileItem>()
                     val duplicates = ArrayList<String>()
-                    currentServers().forEach { server ->
+                    currentServers().sortedBy { uiState.value.isRunning && it.guid != uiState.value.selectedGuid }.forEach { server ->
                         val profile = server.profile
                         if (!profile.configType.isComplexType()) {
                             val identity = profile.duplicateIdentity()
-                            if (!seen.add(identity)) duplicates += server.guid
+                            if (!seen.add(identity) && !isProfileDeletionBlocked(server.guid, uiState.value.selectedGuid, uiState.value.isRunning)) {
+                                duplicates += server.guid
+                            }
                         }
                     }
                     duplicates.forEach { dataSource.removeServer(it) }
@@ -700,8 +709,8 @@ class MainViewModel(
     private fun removeInvalidServerInternal(): Int {
         val visibleServersOnly =
             uiState.value.selectedGroupId.isNotEmpty() || keywordFilter.isNotBlank()
-        return if (visibleServersOnly) {
-            currentServers().sumOf { server ->
+        return if (visibleServersOnly || uiState.value.isRunning) {
+            currentServers().filterNot { isProfileDeletionBlocked(it.guid, uiState.value.selectedGuid, uiState.value.isRunning) }.sumOf { server ->
                 dataSource.removeInvalidServerByGuid(server.guid)
             }
         } else {
@@ -811,7 +820,7 @@ class MainViewModel(
     }
 
     fun removeServerAndRefresh(guid: String) {
-        if (guid == uiState.value.selectedGuid) {
+        if (isProfileDeletionBlocked(guid, uiState.value.selectedGuid, uiState.value.isRunning)) {
             toast(R.string.toast_action_not_allowed)
             return
         }
