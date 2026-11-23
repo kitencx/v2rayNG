@@ -52,6 +52,8 @@ fun MainTopBar(
     onAction: (MainAction) -> Unit,
     onMoreMenuAction: (MainMoreMenuAction) -> Unit
 ) {
+    val actionColors = mainControlPalette(MainControlTone.Info)
+    val neutralColors = MaterialTheme.colorScheme.onSurfaceVariant
     var showImportMenu by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var showManualTypes by remember { mutableStateOf(false) }
@@ -84,12 +86,12 @@ fun MainTopBar(
         actions = {
             if (!showSearch) {
                 IconButton(onClick = { onSearchToggle(true) }) {
-                    Icon(painterResource(R.drawable.ic_search_24dp), contentDescription = stringResource(R.string.acc_search))
+                    Icon(painterResource(R.drawable.ic_search_24dp), contentDescription = stringResource(R.string.acc_search), tint = neutralColors)
                 }
             }
             Box(modifier = Modifier.wrapContentSize(Alignment.TopEnd)) {
                 IconButton(onClick = { showImportMenu = true }) {
-                    Icon(painterResource(R.drawable.ic_add_24dp), contentDescription = stringResource(R.string.acc_add))
+                    Icon(painterResource(R.drawable.ic_add_24dp), contentDescription = stringResource(R.string.acc_add), tint = actionColors.content)
                 }
                 DropdownMenu(
                     expanded = showImportMenu,
@@ -123,7 +125,7 @@ fun MainTopBar(
             }
             Box(modifier = Modifier.wrapContentSize(Alignment.TopEnd)) {
                 IconButton(onClick = { showMenu = true }) {
-                    Icon(painterResource(R.drawable.ic_more_vert_24dp), contentDescription = stringResource(R.string.acc_more))
+                    Icon(painterResource(R.drawable.ic_more_vert_24dp), contentDescription = stringResource(R.string.acc_more), tint = neutralColors)
                 }
                 DropdownMenu(
                     expanded = showMenu,

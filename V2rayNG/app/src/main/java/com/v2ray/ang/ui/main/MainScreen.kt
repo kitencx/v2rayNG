@@ -75,6 +75,7 @@ fun MainScreen(
     val isLoading by mainViewModel.isLoading.collectAsStateWithLifecycle()
     val displayText = mainViewModel.formatStatus(uiState.status)
     val selectedGuid = uiState.selectedGuid
+    val selectedProfile = uiState.selectedProfile
     val doubleColumnDisplay = uiState.doubleColumnDisplay
     val confirmRemove = uiState.confirmRemove
     val shareQRCodeBitmap = uiState.shareQRCodeBitmap
@@ -281,6 +282,12 @@ fun MainScreen(
                             importSubscription = true
                             showImportDialog = true
                         },
+                        onEdit = if (!tv && selectedProfile != null && !selectedGuid.isNullOrBlank()) ({
+                            onAction(MainAction.EditServer(selectedGuid, selectedProfile))
+                        }) else null,
+                        onMore = if (!tv && selectedProfile != null && !selectedGuid.isNullOrBlank()) ({
+                            shareTarget = Triple(selectedGuid, selectedProfile, true)
+                        }) else null,
                         actionModifier = if (tv) Modifier.focusRequester(actionFocus) else Modifier,
                     )
                 }
@@ -406,7 +413,7 @@ fun MainScreen(
                             val inspected = if (tv) currentGroup.rows.firstOrNull { it.guid == inspectedGuid } else null
                             val profile = inspected?.profile ?: uiState.selectedProfile
                             val guid = inspected?.guid ?: uiState.selectedGuid
-                            if (profile != null && guid != null) {
+                            if (tv && profile != null && guid != null) {
                                 if (inspected != null) {
                                     Text(
                                         inspected.remarks,
@@ -416,19 +423,11 @@ fun MainScreen(
                                     )
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    if (!tv) {
-                                        MainControl(
-                                            label = stringResource(R.string.action_edit),
-                                            onClick = { onAction(MainAction.EditServer(guid, profile)) },
-                                            icon = R.drawable.ic_edit_24dp,
-                                            iconOnly = true,
-                                        )
-                                    }
                                     MainControl(
                                         label = stringResource(R.string.acc_more),
                                         onClick = { shareTarget = Triple(guid, profile, true) },
                                         tv = tv,
-                                        icon = R.drawable.ic_more_vert_24dp,
+                                        icon = R.drawable.ic_more_horiz_24dp,
                                         iconOnly = true,
                                     )
                                 }
@@ -550,21 +549,25 @@ private fun MainImportShortcuts(
                 stringResource(R.string.menu_item_import_config_qrcode),
                 { onAction(MainAction.ImportQRcode) },
                 Modifier.fillMaxWidth(), tv = tv,
+                icon = R.drawable.ic_scan_24dp, tone = MainControlTone.Info,
             )
         }
         MainControl(
             stringResource(R.string.menu_item_import_config_clipboard),
             { onAction(MainAction.ImportClipboard) },
             Modifier.fillMaxWidth(), tv = tv,
+            icon = R.drawable.ic_copy, tone = MainControlTone.Info,
         )
         MainControl(
             stringResource(R.string.menu_item_import_config_local),
             { onAction(MainAction.ImportConfigLocal) },
             Modifier.fillMaxWidth(), tv = tv,
+            icon = R.drawable.ic_file_24dp, tone = MainControlTone.Info,
         )
         MainControl(
             stringResource(R.string.home_import_text), onImportText,
             Modifier.fillMaxWidth(), tv = tv,
+            icon = R.drawable.ic_source_code_24dp, tone = MainControlTone.Info,
         )
     }
 }

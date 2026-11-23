@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_status_loading">Konfiqurasiyalar yüklənir</string>
+    <string name="home_status_empty">Konfiqurasiya yoxdur</string>
+    <string name="home_status_select">Seçim edilməyib</string>
+    <string name="home_status_stopped">Xidmət dayandırılıb</string>
+    <string name="home_status_running">Xidmət işləyir</string>
+    <string name="home_network_unchecked">Şəbəkə yoxlanılmayıb</string>
+    <string name="home_network_available">Şəbəkə əlçatandır</string>
+    <string name="home_network_failed">Şəbəkə problemi</string>
+</resources>

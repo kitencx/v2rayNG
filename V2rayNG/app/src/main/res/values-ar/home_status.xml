@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_status_loading">جارٍ تحميل الإعدادات</string>
+    <string name="home_status_empty">لا يوجد إعداد</string>
+    <string name="home_status_select">لم يتم الاختيار</string>
+    <string name="home_status_stopped">الخدمة متوقفة</string>
+    <string name="home_status_running">الخدمة قيد التشغيل</string>
+    <string name="home_network_unchecked">لم يتم فحص الشبكة</string>
+    <string name="home_network_available">الشبكة متاحة</string>
+    <string name="home_network_failed">مشكلة في الشبكة</string>
+</resources>

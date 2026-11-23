@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_status_loading">در حال بارگیری پیکربندی‌ها</string>
+    <string name="home_status_empty">بدون پیکربندی</string>
+    <string name="home_status_select">بدون انتخاب</string>
+    <string name="home_status_stopped">سرویس متوقف است</string>
+    <string name="home_status_running">سرویس فعال است</string>
+    <string name="home_network_unchecked">شبکه بررسی نشده</string>
+    <string name="home_network_available">شبکه در دسترس است</string>
+    <string name="home_network_failed">مشکل شبکه</string>
+</resources>

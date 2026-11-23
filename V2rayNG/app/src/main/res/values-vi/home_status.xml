@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_status_loading">Đang tải cấu hình</string>
+    <string name="home_status_empty">Chưa có cấu hình</string>
+    <string name="home_status_select">Chưa chọn cấu hình</string>
+    <string name="home_status_stopped">Dịch vụ đã dừng</string>
+    <string name="home_status_running">Dịch vụ đang chạy</string>
+    <string name="home_network_unchecked">Chưa kiểm tra mạng</string>
+    <string name="home_network_available">Mạng khả dụng</string>
+    <string name="home_network_failed">Sự cố mạng</string>
+</resources>
