@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_list_unavailable">فهرست برنامه‌ها در دسترس نیست</string>
+    <string name="app_list_permission_help">اجازهٔ دسترسی به فهرست برنامه‌ها را در تنظیمات سیستم بدهید و دوباره تلاش کنید. این فهرست برای انتخاب برنامه‌های دارای پروکسی لازم است.</string>
+    <string name="app_list_load_failed">بارگیری فهرست برنامه‌ها ناموفق بود. دوباره تلاش کنید.</string>
+    <string name="app_list_grant_access">مجوز فهرست برنامه‌ها</string>
+    <string name="app_list_settings_unavailable">تنظیمات مجوز سیستم در دسترس نیست.</string>
+    <string name="action_retry">تلاش دوباره</string>
+    <string name="app_picker_unknown_summary">ترافیک بدون برنامهٔ قابل شناسایی</string>
+    <string name="home_new_manual">ایجاد دستی</string>
+    <string name="home_choose_protocol">انتخاب نوع پیکربندی</string>
+    <string name="home_select_profile">یک پیکربندی انتخاب کنید</string>
+    <string name="home_search_empty">پیکربندی مطابق پیدا نشد</string>
+    <string name="log_empty_title">هنوز گزارشی نیست</string>
+    <string name="log_empty_hint">با استفاده از سرویس گزارش ایجاد می‌شود. برای مشاهدهٔ موارد جدید تازه‌سازی کنید.</string>
+    <string name="import_failure_detail">هیچ پیکربندی وارد نشد. پیوند یا JSON را بررسی کنید. JSON کامل باید شامل inbounds، outbounds و routing باشد.</string>
+    <string name="form_basic">اتصال</string>
+    <string name="form_transport">انتقال</string>
+    <string name="form_security">امنیت</string>
+    <string name="form_advanced">گزینه‌های پیشرفته</string>
+    <string name="routing_condition_count">%1$d شرط تطبیق</string>
+    <string name="sub_editor_hint">گروهی برای ویرایش انتخاب کنید یا اشتراک اضافه کنید.</string>
+    <string name="json_format">قالب‌بندی JSON</string>
+    <string name="json_invalid">JSON نامعتبر است. پیش از ذخیره دستور زبان را بررسی کنید.</string>
+    <string name="server_policy_group">گروه سیاست</string>
+    <string name="server_proxy_chain">زنجیرهٔ پروکسی</string>
+    <string name="server_custom">JSON سفارشی</string>
+    <string name="json_invalid_location">خطای JSON در خط %1$d، ستون %2$d.</string>
+    <string name="settings_section_interface">رابط کاربری</string>
+    <string name="settings_section_vpn">VPN</string>
+    <string name="settings_section_core">هسته و DNS</string>
+    <string name="settings_section_mux">چندگانه‌سازی</string>
+    <string name="settings_section_fragment">تکه‌بندی</string>
+    <string name="settings_section_observatory">پایش اتصال</string>
+    <string name="settings_section_advanced">پیشرفته</string>
+    <string name="settings_section_mode">حالت</string>
+    <string name="routing_enable_rule">فعال کردن قانون: %1$s</string>
+</resources>

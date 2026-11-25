@@ -20,6 +20,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import com.v2ray.ang.ui.compose.AdaptiveContent
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -65,10 +67,11 @@ fun TranslatorsScreen(onBackClick: () -> Unit) {
             )
         }
     ) { innerPadding ->
+        AdaptiveContent(Modifier.padding(innerPadding).consumeWindowInsets(innerPadding)) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
+                ,
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -79,6 +82,7 @@ fun TranslatorsScreen(onBackClick: () -> Unit) {
                 NavigationBarsSpacer()
             }
         }
+            }
     }
 }
 

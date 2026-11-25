@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Scaffold
+import com.v2ray.ang.ui.compose.AdaptiveContent
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -212,10 +214,11 @@ fun BackupScreen(
             )
         }
     ) { innerPadding ->
+        AdaptiveContent(Modifier.padding(innerPadding).consumeWindowInsets(innerPadding)) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+
                 .verticalScroll(rememberScrollState())
         ) {
             SettingsMenuItem(
@@ -248,6 +251,7 @@ fun BackupScreen(
             )
             NavigationBarsSpacer()
         }
+            }
     }
 
     if (showBackupDialog) {

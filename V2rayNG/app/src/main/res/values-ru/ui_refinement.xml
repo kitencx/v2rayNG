@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_list_unavailable">Список приложений недоступен</string>
+    <string name="app_list_permission_help">Разрешите доступ к списку установленных приложений в настройках системы и повторите попытку. Он нужен для выбора приложений, использующих прокси.</string>
+    <string name="app_list_load_failed">Не удалось загрузить список приложений. Повторите попытку.</string>
+    <string name="app_list_grant_access">Доступ к приложениям</string>
+    <string name="app_list_settings_unavailable">Настройки разрешений недоступны.</string>
+    <string name="action_retry">Повторить</string>
+    <string name="app_picker_unknown_summary">Трафик без определённого приложения</string>
+    <string name="home_new_manual">Создать вручную</string>
+    <string name="home_choose_protocol">Выберите тип конфигурации</string>
+    <string name="home_select_profile">Выберите конфигурацию</string>
+    <string name="home_search_empty">Совпадений нет</string>
+    <string name="log_empty_title">Журнал пуст</string>
+    <string name="log_empty_hint">Записи появятся при использовании сервиса. Обновите журнал для проверки.</string>
+    <string name="import_failure_detail">Конфигурации не импортированы. Проверьте ссылку или JSON. Полный JSON должен содержать inbounds, outbounds и routing.</string>
+    <string name="form_basic">Подключение</string>
+    <string name="form_transport">Транспорт</string>
+    <string name="form_security">Безопасность</string>
+    <string name="form_advanced">Дополнительно</string>
+    <string name="routing_condition_count">Условий: %1$d</string>
+    <string name="sub_editor_hint">Выберите группу для редактирования или добавьте подписку.</string>
+    <string name="json_format">Форматировать JSON</string>
+    <string name="json_invalid">Ошибка JSON. Проверьте синтаксис перед сохранением.</string>
+    <string name="server_policy_group">Группа политик</string>
+    <string name="server_proxy_chain">Цепочка прокси</string>
+    <string name="server_custom">Свой JSON</string>
+    <string name="json_invalid_location">Ошибка JSON: строка %1$d, столбец %2$d.</string>
+    <string name="settings_section_interface">Интерфейс</string>
+    <string name="settings_section_vpn">VPN</string>
+    <string name="settings_section_core">Ядро и DNS</string>
+    <string name="settings_section_mux">Мультиплексирование</string>
+    <string name="settings_section_fragment">Фрагментация</string>
+    <string name="settings_section_observatory">Мониторинг</string>
+    <string name="settings_section_advanced">Дополнительно</string>
+    <string name="settings_section_mode">Режим</string>
+    <string name="routing_enable_rule">Включить правило: %1$s</string>
+</resources>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_status_loading">載入設定中</string>
+    <string name="home_status_empty">尚未設定</string>
+    <string name="home_status_select">未選擇節點</string>
+    <string name="home_status_stopped">服務已停止</string>
+    <string name="home_status_running">服務執行中</string>
+    <string name="home_network_unchecked">網路尚未檢測</string>
+    <string name="home_network_available">網路可用</string>
+    <string name="home_network_failed">網路異常</string>
+</resources>

@@ -45,13 +45,15 @@ import com.v2ray.ang.handler.SettingsChangeManager
 import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.ui.base.BaseComponentActivity
 import com.v2ray.ang.ui.compose.AppTopBar
+import com.v2ray.ang.ui.compose.AppIconAction
+import com.v2ray.ang.ui.compose.AdaptiveContent
+import com.v2ray.ang.ui.compose.FormSection
 import com.v2ray.ang.ui.compose.DeleteConfirmDialog
 import com.v2ray.ang.ui.compose.FormTextField
 import com.v2ray.ang.ui.compose.NavigationBarsSpacer
 import com.v2ray.ang.ui.compose.ServerSelectListDialog
 import com.v2ray.ang.ui.compose.SettingsSwitchItem
 import com.v2ray.ang.ui.compose.verticalScrollbar
-import com.v2ray.ang.ui.main.MainControl
 import com.v2ray.ang.util.Utils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -64,6 +66,7 @@ class SubEditActivity : BaseComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         viewModel.refreshProfileSuggestions()
+        viewModel.reload()
 
         subItem = MmkvManager.decodeSubscription(editSubId) ?: SubscriptionItem()
     }
@@ -71,13 +74,15 @@ class SubEditActivity : BaseComponentActivity() {
     @Composable
     override fun ScreenContent() {
         val suggestions by viewModel.profileSuggestions.collectAsStateWithLifecycle()
+        val confirmRemove by viewModel.confirmRemove.collectAsStateWithLifecycle()
         SubEditScreen(
             editSubId = editSubId,
             initial = subItem,
             profileSuggestions = suggestions,
             onBackClick = { finish() },
             onSave = { viewModel.saveFromEditor(editSubId, it) { finish() } },
-            onDelete = { deleteServer() }
+            onDelete = { deleteServer() },
+            confirmRemove = confirmRemove,
         )
     }
 
@@ -102,6 +107,7 @@ fun SubEditScreen(
     onSave: (SubscriptionItem) -> Unit,
     onDelete: () -> Unit,
     embedded: Boolean = false,
+    confirmRemove: Boolean = false,
 ) {
     var remarks by rememberSaveable { mutableStateOf(initial.remarks.orEmpty()) }
     var isRemarksError by rememberSaveable { mutableStateOf(false) }
@@ -121,7 +127,6 @@ fun SubEditScreen(
     var showDeleteConfirm by rememberSaveable { mutableStateOf(false) }
     var showPrevProfileDialog by rememberSaveable { mutableStateOf(false) }
     var showNextProfileDialog by rememberSaveable { mutableStateOf(false) }
-    val confirmRemove = MmkvManager.decodeSettingsBool(AppConfig.PREF_CONFIRM_REMOVE, false)
     val scrollState = rememberScrollState()
 
     fun buildSubItem(): SubscriptionItem {
@@ -173,9 +178,6 @@ fun SubEditScreen(
                 isError = isUrlError,
                 supportingText = if (isUrlError) stringResource(R.string.toast_invalid_url) else null
             )
-            FormTextField(stringResource(R.string.sub_setting_user_agent), userAgent, { userAgent = it })
-            FormTextField(stringResource(R.string.sub_setting_request_headers), requestHeaders, { requestHeaders = it })
-            FormTextField(stringResource(R.string.sub_setting_filter), filter, { filter = it })
             SettingsSwitchItem(
                 title = stringResource(R.string.sub_setting_enable),
                 checked = enabled,
@@ -191,78 +193,69 @@ fun SubEditScreen(
             FormTextField(
                 label = stringResource(R.string.title_pref_auto_update_interval),
                 value = updateInterval,
+                enabled = autoUpdate,
                 onValueChange = { updateInterval = it },
                 keyboardType = KeyboardType.Number,
                 isError = isUpdateIntervalError,
                 supportingText = if (isUpdateIntervalError) stringResource(R.string.toast_invalid_update_interval) else null
             )
 
-            SettingsSwitchItem(
-                title = stringResource(R.string.sub_allow_insecure_url),
-                checked = allowInsecureUrl,
-                onCheckedChange = { allowInsecureUrl = it }
-            )
-            ProfileSelectDialogField(
-                label = stringResource(R.string.sub_setting_pre_profile),
-                placeholder = stringResource(R.string.sub_setting_pre_profile_tip),
-                value = prevProfile,
-                onClick = { showPrevProfileDialog = true },
-                onClear = { prevProfile = "" },
-                supportingText = stringResource(R.string.sub_setting_entry_proxy_tip)
-            )
-            ProfileSelectDialogField(
-                label = stringResource(R.string.sub_setting_next_profile),
-                placeholder = stringResource(R.string.sub_setting_pre_profile_tip),
-                value = nextProfile,
-                onClick = { showNextProfileDialog = true },
-                onClear = { nextProfile = "" },
-                supportingText = stringResource(R.string.sub_setting_exit_proxy_tip)
-            )
-            if (!embedded) {
-                Button(
-                    onClick = save,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                ) {
-                    Text(stringResource(R.string.acc_save))
-                }
-                NavigationBarsSpacer()
+            FormSection(stringResource(R.string.form_advanced), initiallyExpanded =
+                !initial.userAgent.isNullOrBlank() || !initial.requestHeaders.isNullOrBlank() || !initial.filter.isNullOrBlank() ||
+                initial.allowInsecureUrl || !initial.prevProfile.isNullOrBlank() || !initial.nextProfile.isNullOrBlank()) {
+                FormTextField(stringResource(R.string.sub_setting_user_agent), userAgent, { userAgent = it })
+                FormTextField(stringResource(R.string.sub_setting_request_headers), requestHeaders, { requestHeaders = it })
+                FormTextField(stringResource(R.string.sub_setting_filter), filter, { filter = it })
+                SettingsSwitchItem(
+                    title = stringResource(R.string.sub_allow_insecure_url),
+                    checked = allowInsecureUrl,
+                    onCheckedChange = { allowInsecureUrl = it }
+                )
+                ProfileSelectDialogField(
+                    label = stringResource(R.string.sub_setting_pre_profile),
+                    placeholder = stringResource(R.string.sub_setting_pre_profile_tip),
+                    value = prevProfile,
+                    onClick = { showPrevProfileDialog = true },
+                    onClear = { prevProfile = "" },
+                    supportingText = stringResource(R.string.sub_setting_entry_proxy_tip)
+                )
+                ProfileSelectDialogField(
+                    label = stringResource(R.string.sub_setting_next_profile),
+                    placeholder = stringResource(R.string.sub_setting_pre_profile_tip),
+                    value = nextProfile,
+                    onClick = { showNextProfileDialog = true },
+                    onClear = { nextProfile = "" },
+                    supportingText = stringResource(R.string.sub_setting_exit_proxy_tip)
+                )
             }
+            NavigationBarsSpacer()
         }
     }
 
-    if (embedded) {
-        Column(Modifier.fillMaxSize()) {
-            Row(
-                Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(horizontal = 16.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = initial.remarks.ifBlank { stringResource(R.string.acc_add_subscription) },
-                    style = MaterialTheme.typography.titleLarge,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                MainControl(
-                    label = stringResource(R.string.acc_save),
-                    onClick = save,
-                    icon = R.drawable.ic_fab_check,
-                    iconOnly = true,
-                    emphasized = true,
-                    tv = true,
-                )
-            }
-            form(Modifier.weight(1f))
-        }
-    } else {
-        Scaffold(
-            contentWindowInsets = WindowInsets(0),
-            topBar = {
+    Scaffold(
+        contentWindowInsets = WindowInsets(0),
+        topBar = {
+            if (embedded) {
+                Row(
+                    Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(horizontal = 16.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = initial.remarks.ifBlank { stringResource(R.string.acc_add_subscription) },
+                        style = MaterialTheme.typography.titleLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    AppIconAction(stringResource(R.string.acc_save), R.drawable.ic_fab_check, save, emphasized = true)
+                }
+            } else {
                 AppTopBar(
                     title = stringResource(R.string.title_sub_setting),
                     onBackClick = onBackClick,
                     actions = {
+                        AppIconAction(stringResource(R.string.acc_save), R.drawable.ic_fab_check, save, emphasized = true)
                         if (editSubId.isNotEmpty()) {
                             IconButton(onClick = {
                                 if (confirmRemove) showDeleteConfirm = true else onDelete()
@@ -272,9 +265,12 @@ fun SubEditScreen(
                         }
                     },
                 )
-            },
-        ) { innerPadding ->
-            form(Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding))
+            }
+        }
+    ) { innerPadding ->
+        // Keep the same form call site when the surrounding split layout changes.
+        AdaptiveContent(Modifier.padding(innerPadding).consumeWindowInsets(innerPadding)) {
+            form(Modifier.fillMaxSize())
         }
     }
 

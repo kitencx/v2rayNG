@@ -19,11 +19,13 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -60,8 +62,6 @@ import com.v2ray.ang.AppConfig
 import com.v2ray.ang.R
 import com.v2ray.ang.dto.entities.SubscriptionItem
 import com.v2ray.ang.extension.toast
-import com.v2ray.ang.handler.MmkvManager
-import com.v2ray.ang.handler.MmkvManager.rememberMmkvBool
 import com.v2ray.ang.ui.base.BaseComponentActivity
 import com.v2ray.ang.ui.compose.AppTopBar
 import com.v2ray.ang.ui.compose.DeleteConfirmDialog
@@ -94,6 +94,7 @@ class SubSettingActivity : BaseComponentActivity() {
         val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
         val subscriptions by viewModel.subsFlow.collectAsStateWithLifecycle()
         val suggestions by viewModel.profileSuggestions.collectAsStateWithLifecycle()
+        val confirmRemove by viewModel.confirmRemove.collectAsStateWithLifecycle()
         var editorId by rememberSaveable { mutableStateOf<String?>(null) }
         val editorState = rememberSaveableStateHolder()
         val id = editorId
@@ -121,15 +122,12 @@ class SubSettingActivity : BaseComponentActivity() {
                                     if (editorId == id) closeEditor()
                                 }
                             },
-                            onDelete = {},
+                            onDelete = { removeSub(id); closeEditor() },
                             embedded = wide,
+                            confirmRemove = confirmRemove,
                         )
                     }
                 }
-            }
-            if (!wide && id != null && item != null) {
-                editor()
-                return@BoxWithConstraints
             }
             SubSettingScreen(
                 viewModel = viewModel,
@@ -152,8 +150,9 @@ class SubSettingActivity : BaseComponentActivity() {
                     Utils.setClipboard(this@SubSettingActivity, url)
                     toast(getString(R.string.toast_success))
                 },
+                wideLayout = wide,
                 editorId = editorId.takeIf { wide },
-                editor = editor.takeIf { wide && id != null && item != null },
+                editor = editor.takeIf { id != null && item != null },
             )
         }
     }
@@ -179,13 +178,15 @@ fun SubSettingScreen(
     onRemoveSub: (String) -> Unit,
     onShareQRCode: (String) -> Unit,
     onShareClipboard: (String) -> Unit,
+    wideLayout: Boolean = false,
     editorId: String? = null,
     editor: (@Composable () -> Unit)? = null,
 ) {
     val subscriptions by viewModel.subsFlow.collectAsStateWithLifecycle()
     var showUpdateDialog by remember { mutableStateOf(false) }
     var removeTarget by remember { mutableStateOf<SubscriptionDeleteTarget?>(null) }
-    val confirmRemove = MmkvManager.decodeSettingsBool(AppConfig.PREF_CONFIRM_REMOVE, false)
+    val confirmRemove by viewModel.confirmRemove.collectAsStateWithLifecycle()
+    val updateOptions by viewModel.updateOptions.collectAsStateWithLifecycle()
 
     var shareTarget by remember { mutableStateOf<Pair<String, String>?>(null) }
     val qrCodeBitmap by viewModel.qrCode.collectAsStateWithLifecycle()
@@ -197,29 +198,34 @@ fun SubSettingScreen(
 
     Scaffold(
         topBar = {
-            AppTopBar(
-                title = stringResource(R.string.title_sub_setting),
-                onBackClick = onBackClick,
-                isLoading = isLoading,
-                actions = {
-                    IconButton(onClick = onAddClick) {
-                        Icon(painterResource(R.drawable.ic_add_24dp), contentDescription = stringResource(R.string.acc_add_subscription))
+            if (wideLayout || editor == null) {
+                AppTopBar(
+                    title = stringResource(R.string.title_sub_setting),
+                    onBackClick = onBackClick,
+                    isLoading = isLoading,
+                    actions = {
+                        IconButton(onClick = onAddClick) {
+                            Icon(painterResource(R.drawable.ic_add_24dp), contentDescription = stringResource(R.string.acc_add_subscription))
+                        }
+                        IconButton(onClick = { showUpdateDialog = true }) {
+                            Icon(painterResource(R.drawable.ic_restore_24dp), contentDescription = stringResource(R.string.acc_update_subscriptions))
+                        }
                     }
-                    IconButton(onClick = { showUpdateDialog = true }) {
-                        Icon(painterResource(R.drawable.ic_restore_24dp), contentDescription = stringResource(R.string.acc_update_subscriptions))
-                    }
-                }
-            )
+                )
+            }
         }
     ) { innerPadding ->
         Row(
             Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = if (wideLayout || editor == null) 16.dp else 0.dp,
+                    vertical = if (wideLayout || editor == null) 8.dp else 0.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
+            if (wideLayout || editor == null) {
             LazyColumn(
                 state = lazyListState,
-                modifier = Modifier.weight(1f).fillMaxHeight().verticalScrollbar(lazyListState),
+                modifier = (if (wideLayout) Modifier.width(280.dp) else Modifier.weight(1f))
+                    .fillMaxHeight().verticalScrollbar(lazyListState),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 itemsIndexed(items = subscriptions, key = { _, item -> item.guid }) { _, subCache ->
@@ -244,13 +250,25 @@ fun SubSettingScreen(
                     }
                 }
             }
-            if (editor != null) {
-                VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
+            if (wideLayout || editor != null) {
+                if (wideLayout) VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                // Keep one editor call site across orientations so saveable draft keys stay stable.
                 Surface(
-                    modifier = Modifier.weight(1.65f).fillMaxHeight(),
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
                     shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerLow,
-                    content = editor,
+                    content = {
+                        if (editor != null) editor() else {
+                            Column(Modifier.fillMaxSize().padding(32.dp),
+                                verticalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(stringResource(R.string.sub_editor_hint), style = MaterialTheme.typography.titleMedium)
+                                Spacer(Modifier.height(16.dp))
+                                Button(onClick = onAddClick) { Text(stringResource(R.string.acc_add_subscription)) }
+                            }
+                        }
+                    },
                 )
             }
         }
@@ -294,10 +312,10 @@ fun SubSettingScreen(
 
     if (showUpdateDialog) {
 
-        var updateSubscription by rememberMmkvBool(AppConfig.PREF_UPDATE_SUBSCRIPTION, false)
-        var autoTestAfterUpdateSubscription by rememberMmkvBool(AppConfig.PREF_AUTO_TEST_AFTER_UPDATE_SUBSCRIPTION, false)
-        var autoRemoveInvalidAfterTest by rememberMmkvBool(AppConfig.PREF_AUTO_REMOVE_INVALID_AFTER_TEST, false)
-        var autoSortAfterTest by rememberMmkvBool(AppConfig.PREF_AUTO_SORT_AFTER_TEST, false)
+        val updateSubscription = updateOptions[AppConfig.PREF_UPDATE_SUBSCRIPTION] ?: false
+        val autoTestAfterUpdateSubscription = updateOptions[AppConfig.PREF_AUTO_TEST_AFTER_UPDATE_SUBSCRIPTION] ?: false
+        val autoRemoveInvalidAfterTest = updateOptions[AppConfig.PREF_AUTO_REMOVE_INVALID_AFTER_TEST] ?: false
+        val autoSortAfterTest = updateOptions[AppConfig.PREF_AUTO_SORT_AFTER_TEST] ?: false
 
         AlertDialog(
             onDismissRequest = { showUpdateDialog = false },
@@ -306,27 +324,27 @@ fun SubSettingScreen(
                     SettingsSwitchItem(
                         title = stringResource(R.string.title_sub_update),
                         checked = updateSubscription,
-                        onCheckedChange = { updateSubscription = it }
+                        onCheckedChange = { viewModel.setUpdateOption(AppConfig.PREF_UPDATE_SUBSCRIPTION, it) }
                     )
                     SettingsSwitchItem(
                         title = stringResource(R.string.title_pref_auto_test_after_update_subscription),
                         summary = stringResource(R.string.summary_pref_auto_test_after_update_subscription),
                         checked = autoTestAfterUpdateSubscription,
-                        onCheckedChange = { autoTestAfterUpdateSubscription = it }
+                        onCheckedChange = { viewModel.setUpdateOption(AppConfig.PREF_AUTO_TEST_AFTER_UPDATE_SUBSCRIPTION, it) }
                     )
                     SettingsSwitchItem(
                         title = stringResource(R.string.title_pref_auto_remove_invalid_after_test),
                         summary = stringResource(R.string.summary_pref_auto_remove_invalid_after_test),
                         checked = autoRemoveInvalidAfterTest,
                         enabled = autoTestAfterUpdateSubscription,
-                        onCheckedChange = { autoRemoveInvalidAfterTest = it }
+                        onCheckedChange = { viewModel.setUpdateOption(AppConfig.PREF_AUTO_REMOVE_INVALID_AFTER_TEST, it) }
                     )
                     SettingsSwitchItem(
                         title = stringResource(R.string.title_pref_auto_sort_after_test),
                         summary = stringResource(R.string.summary_pref_auto_sort_after_test),
                         checked = autoSortAfterTest,
                         enabled = autoTestAfterUpdateSubscription,
-                        onCheckedChange = { autoSortAfterTest = it }
+                        onCheckedChange = { viewModel.setUpdateOption(AppConfig.PREF_AUTO_SORT_AFTER_TEST, it) }
                     )
                 }
             },

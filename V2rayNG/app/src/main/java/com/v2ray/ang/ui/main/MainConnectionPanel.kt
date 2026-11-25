@@ -1,6 +1,8 @@
 package com.v2ray.ang.ui.main
 
-import androidx.compose.foundation.Canvas
+import androidx.annotation.DrawableRes
+import androidx.annotation.StringRes
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,26 +11,53 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.v2ray.ang.R
 import com.v2ray.ang.dto.entities.ProfileItem
+
+internal enum class MainServicePhase(@StringRes val label: Int, val tone: MainControlTone) {
+    Loading(R.string.home_status_loading, MainControlTone.Info),
+    Empty(R.string.home_status_empty, MainControlTone.Warning),
+    SelectionRequired(R.string.home_status_select, MainControlTone.Warning),
+    Stopped(R.string.home_status_stopped, MainControlTone.Neutral),
+    Running(R.string.home_status_running, MainControlTone.Positive),
+}
+
+internal enum class MainNetworkPhase { Unchecked, Testing, Available, Failed }
+
+// A running service is not evidence of internet access; only a current connection test supplies that result.
+internal fun mainServicePhase(state: MainUiState, loading: Boolean, hasProfiles: Boolean): MainServicePhase = when {
+    state.isRunning -> MainServicePhase.Running
+    !state.selectedGuid.isNullOrBlank() -> MainServicePhase.Stopped
+    hasProfiles -> MainServicePhase.SelectionRequired
+    loading -> MainServicePhase.Loading
+    else -> MainServicePhase.Empty
+}
+
+internal fun mainNetworkPhase(state: MainUiState): MainNetworkPhase = when {
+    !state.isRunning -> MainNetworkPhase.Unchecked
+    state.isTesting || state.status is MainStatus.Testing || state.status is MainStatus.TestProgress -> MainNetworkPhase.Testing
+    state.status is MainStatus.ConnectionTest -> if (state.status.result.delayMillis >= 0) MainNetworkPhase.Available else MainNetworkPhase.Failed
+    else -> MainNetworkPhase.Unchecked
+}
 
 @Composable
 internal fun MainConnectionPanel(
@@ -40,91 +69,93 @@ internal fun MainConnectionPanel(
     tv: Boolean,
     onAction: (MainAction) -> Unit,
     onAddSubscription: () -> Unit,
+    onEdit: (() -> Unit)? = null,
+    onMore: (() -> Unit)? = null,
     actionModifier: Modifier = Modifier,
 ) {
     val colors = MaterialTheme.colorScheme
-    val needsConfig = !state.isRunning && !isLoading && state.selectedGuid.isNullOrBlank()
-    val needsSelection = needsConfig && hasVisibleProfiles
-    val waitingForConfig = needsConfig && !hasVisibleProfiles
-    val profileName = profile?.remarks.orEmpty()
-    val title = when {
-        waitingForConfig -> stringResource(R.string.home_no_profiles)
-        needsSelection -> stringResource(R.string.title_file_chooser)
-        state.isRunning -> profileName.takeIf(String::isNotBlank)
-            ?: stringResource(R.string.home_service_running)
-        else -> stringResource(R.string.connection_not_connected)
-    }
-    val description = when {
-        waitingForConfig -> stringResource(R.string.home_import_hint)
-        state.status is MainStatus.Testing || state.status is MainStatus.TestProgress ||
-            state.status is MainStatus.ConnectionTest -> displayText
-        else -> profile?.let(::serverProtocolDescription).orEmpty()
-    }
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        color = colors.surfaceContainer,
-    ) {
-        Box {
-            ConnectionOrbit(state.isRunning, Modifier.matchParentSize())
-            Column(
-                Modifier.padding(if (tv) 24.dp else 20.dp),
-                verticalArrangement = Arrangement.spacedBy(if (tv) 16.dp else 12.dp),
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(Modifier.size(7.dp).background(
-                        if (state.isRunning) colors.primary else colors.outline, CircleShape
-                    ))
-                    Text(
-                        if (state.isRunning) stringResource(R.string.home_service_running)
-                        else stringResource(R.string.title_server),
-                        color = if (state.isRunning) colors.primary else colors.onSurfaceVariant,
-                        style = if (tv) MaterialTheme.typography.titleMedium else MaterialTheme.typography.labelLarge,
-                    )
+    val phase = mainServicePhase(state, isLoading, hasVisibleProfiles)
+    val network = mainNetworkPhase(state)
+    val hasSelection = !state.selectedGuid.isNullOrBlank()
+    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), color = colors.surfaceContainer) {
+        Column(
+            Modifier.padding(if (tv) 24.dp else 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Box(Modifier.weight(1f)) {
+                    MainStatusBadge(stringResource(phase.label), phase.tone,
+                        pending = phase == MainServicePhase.Loading)
                 }
-                Text(
-                    title,
-                    modifier = Modifier.widthIn(max = if (tv) 350.dp else 270.dp),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = if (tv) 34.sp else 28.sp,
-                    lineHeight = if (tv) 41.sp else 34.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (description.isNotBlank()) {
-                    Text(description, color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+                if (onEdit != null) {
+                    MainControl(stringResource(R.string.action_edit), onEdit, tv = tv,
+                        icon = R.drawable.ic_edit_24dp, iconOnly = true, tone = MainControlTone.Info)
                 }
-                if (!state.isRunning && !waitingForConfig && profileName.isNotBlank()) {
-                    Text(profileName, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (onMore != null) {
+                    MainControl(stringResource(R.string.acc_more), onMore, tv = tv,
+                        icon = R.drawable.ic_more_horiz_24dp, iconOnly = true)
                 }
-                if (needsSelection) return@Column
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MainControl(
-                        label = stringResource(
-                            if (waitingForConfig) R.string.acc_add_subscription
-                            else if (state.isRunning) R.string.acc_stop else R.string.acc_start
-                        ),
-                        onClick = if (waitingForConfig) onAddSubscription else ({ onAction(MainAction.ToggleService) }),
-                        modifier = actionModifier,
-                        tv = tv,
-                        emphasized = !state.isRunning,
-                        enabled = state.isRunning || !isLoading,
-                        iconOnly = !waitingForConfig,
-                        icon = if (waitingForConfig) null else if (state.isRunning) {
-                            R.drawable.ic_stop_24dp
-                        } else {
-                            R.drawable.ic_play_24dp
-                        },
-                    )
-                    if (state.isRunning) {
-                        MainControl(
-                            label = stringResource(R.string.connection_test_pending),
-                            onClick = { onAction(MainAction.TestCurrentServer) },
-                            tv = tv,
-                            icon = R.drawable.ic_fab_check,
-                            iconOnly = true,
-                        )
+            }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val title = when (phase) {
+                        MainServicePhase.Empty -> stringResource(R.string.home_no_profiles)
+                        MainServicePhase.SelectionRequired -> stringResource(R.string.home_select_profile)
+                        MainServicePhase.Loading -> ""
+                        else -> profile?.remarks.orEmpty()
                     }
+                    if (title.isNotBlank()) Text(title, style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    val description = profile?.let(::serverProtocolDescription).orEmpty()
+                    if (description.isNotBlank()) Text(description, style = MaterialTheme.typography.bodyMedium,
+                        color = colors.onSurfaceVariant)
+                    if (phase == MainServicePhase.Empty) {
+                        Text(stringResource(R.string.home_import_hint), style = MaterialTheme.typography.bodyMedium,
+                            color = colors.onSurfaceVariant)
+                        MainControl(stringResource(R.string.acc_add_subscription), onAddSubscription,
+                            modifier = actionModifier, tv = tv, icon = R.drawable.ic_add_24dp,
+                            tone = MainControlTone.Info)
+                    }
+                }
+                if (hasSelection || state.isRunning) {
+                    MainControl(
+                        stringResource(if (state.isRunning) R.string.acc_stop else R.string.acc_start),
+                        { onAction(MainAction.ToggleService) },
+                        modifier = actionModifier.size(if (tv) 80.dp else 64.dp),
+                        tv = tv, emphasized = true, enabled = state.isRunning || !isLoading,
+                        icon = if (state.isRunning) R.drawable.ic_stop_24dp else R.drawable.ic_service_power_24dp,
+                        iconOnly = true, tone = if (state.isRunning) MainControlTone.Danger else MainControlTone.Positive,
+                    )
+                }
+            }
+            if (state.isRunning) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        when (network) {
+                            MainNetworkPhase.Unchecked -> Text(stringResource(R.string.home_network_unchecked),
+                                style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                            MainNetworkPhase.Testing -> MainStatusBadge(stringResource(R.string.connection_test_testing),
+                                MainControlTone.Info, pending = true)
+                            MainNetworkPhase.Available -> MainStatusBadge(stringResource(R.string.home_network_available),
+                                MainControlTone.Positive, icon = R.drawable.ic_action_done)
+                            MainNetworkPhase.Failed -> MainStatusBadge(stringResource(R.string.home_network_failed),
+                                MainControlTone.Danger, icon = R.drawable.ic_status_alert_24dp)
+                        }
+                        val showDetails = network == MainNetworkPhase.Available || network == MainNetworkPhase.Failed ||
+                            network == MainNetworkPhase.Testing && state.status is MainStatus.TestProgress
+                        if (showDetails && displayText.isNotBlank()) {
+                            Text(displayText, style = MaterialTheme.typography.bodySmall,
+                                color = if (network == MainNetworkPhase.Failed) colors.error else colors.onSurfaceVariant,
+                                maxLines = 3, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                    MainControl(stringResource(R.string.connection_test_pending),
+                        { onAction(MainAction.TestCurrentServer) }, tv = tv,
+                        enabled = network != MainNetworkPhase.Testing,
+                        icon = R.drawable.ic_speedometer_24dp, iconOnly = true, tone = MainControlTone.Info)
                 }
             }
         }
@@ -132,40 +163,27 @@ internal fun MainConnectionPanel(
 }
 
 @Composable
-private fun ConnectionOrbit(running: Boolean, modifier: Modifier) {
-    val colors = MaterialTheme.colorScheme
-    val color = if (running) colors.primary else colors.outline
-    Canvas(modifier) {
-        val center = Offset(size.width * 0.79f, size.height * 0.3f)
-        val radius = minOf(size.width * 0.28f, size.height * 0.51f)
-        drawCircle(
-            brush = Brush.radialGradient(
-                listOf(color.copy(alpha = 0.23f), color.copy(alpha = 0.06f), color.copy(alpha = 0f)),
-                center, radius * 1.7f,
-            ),
-            radius = radius * 1.7f,
-            center = center,
-        )
-        for (ring in 1..4) {
-            drawCircle(
-                color.copy(alpha = 0.23f - ring * 0.035f),
-                radius * (0.31f + ring * 0.19f),
-                center,
-                style = Stroke(1.dp.toPx()),
-            )
+private fun MainStatusBadge(
+    label: String,
+    tone: MainControlTone,
+    modifier: Modifier = Modifier,
+    pending: Boolean = false,
+    @DrawableRes icon: Int? = null,
+) {
+    val palette = mainControlPalette(tone)
+    Surface(modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+        shape = RoundedCornerShape(10.dp), color = palette.container,
+        border = BorderStroke(1.dp, palette.content.copy(alpha = 0.16f))) {
+        Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            when {
+                pending -> CircularProgressIndicator(Modifier.size(14.dp).clearAndSetSemantics {},
+                    color = palette.content, strokeWidth = 2.dp)
+                icon != null -> Icon(painterResource(icon), null, Modifier.size(16.dp), tint = palette.content)
+                else -> Box(Modifier.size(7.dp).background(palette.content, CircleShape))
+            }
+            Text(label, style = MaterialTheme.typography.labelMedium, color = palette.content,
+                maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
-        drawCircle(color.copy(alpha = 0.12f), radius * 0.34f, center)
-        val glyph = radius * 0.16f
-        drawArc(
-            color.copy(alpha = 0.75f), -45f, 270f, false,
-            topLeft = center - Offset(glyph, glyph), size = Size(glyph * 2, glyph * 2),
-            style = Stroke(1.6.dp.toPx()),
-        )
-        drawLine(
-            color.copy(alpha = 0.75f),
-            center - Offset(0f, glyph * 1.3f),
-            center - Offset(0f, glyph * 0.15f),
-            strokeWidth = 1.6.dp.toPx(),
-        )
     }
 }

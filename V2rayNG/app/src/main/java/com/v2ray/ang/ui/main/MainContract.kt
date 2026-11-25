@@ -6,6 +6,11 @@ import com.v2ray.ang.dto.LocateTarget
 import com.v2ray.ang.dto.entities.ProfileItem
 
 /** Locale-neutral state formatted only when it reaches the main UI. */
+enum class MainImportState { Idle, Working, Success, Invalid, InvalidUrl, Failed }
+
+internal fun importResultState(profiles: Int, subscriptions: Int): MainImportState =
+    if (profiles > 0 || subscriptions > 0) MainImportState.Success else MainImportState.Invalid
+
 sealed interface MainStatus {
     data object Disconnected : MainStatus
     data object Connected : MainStatus
@@ -28,6 +33,7 @@ data class MainUiState(
     val locateTarget: LocateTarget? = null,
     val confirmRemove: Boolean = false,
     val doubleColumnDisplay: Boolean = false,
+    val importState: MainImportState = MainImportState.Idle,
     val shareQRCodeBitmap: android.graphics.Bitmap? = null
 )
 
@@ -50,6 +56,7 @@ sealed interface MainAction {
     data class UpdateGroupSubscription(val groupId: String) : MainAction
     data object ExportAll : MainAction
 
+    data object DismissImportResult : MainAction
     data object ImportQRcode : MainAction
     data object ImportClipboard : MainAction
     data object ImportConfigLocal : MainAction

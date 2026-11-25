@@ -13,6 +13,8 @@ import com.v2ray.ang.AppConfig
 import java.lang.reflect.Type
 
 object JsonUtil {
+    fun formatJson(source: String): String = requireNotNull(toJsonPretty(JsonParser.parseString(source)))
+
     private var gson = Gson()
 
     /**

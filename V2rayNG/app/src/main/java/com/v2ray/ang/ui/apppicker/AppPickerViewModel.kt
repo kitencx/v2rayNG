@@ -8,6 +8,7 @@ import com.v2ray.ang.dto.AppInfo
 import com.v2ray.ang.ui.AppSelection
 import com.v2ray.ang.ui.base.BaseViewModel
 import com.v2ray.ang.util.AppManagerUtil
+import com.v2ray.ang.util.AppListIssue
 import com.v2ray.ang.util.LogUtil
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -33,6 +34,8 @@ class AppPickerViewModel(application: Application) : BaseViewModel(application) 
     private var selectedSnapshot: Set<String> = emptySet()
     private var initialized = false
     private var isAppListLoading = false
+    private val _appListIssue = MutableStateFlow<AppListIssue?>(null)
+    val appListIssue: StateFlow<AppListIssue?> = _appListIssue.asStateFlow()
 
     fun initialize(initialSelected: Collection<String>) {
         if (initialized) return
@@ -40,7 +43,9 @@ class AppPickerViewModel(application: Application) : BaseViewModel(application) 
         _selectedPackages.value = initialSelected.toSet()
     }
 
-    fun loadApps(context: Context) {
+    fun loadApps(context: Context, forceReload: Boolean = false) {
+        if (isAppListLoading) return
+        if (forceReload) allApps = null
         allApps?.let { apps ->
             val localizedUnknownApp = getString(R.string.app_picker_unknown_app)
             val updatedApps = apps.map { appInfo ->
@@ -69,9 +74,16 @@ class AppPickerViewModel(application: Application) : BaseViewModel(application) 
                 }
                 allApps = apps
                 _displayedApps.value = applyFilter(currentQuery)
+                _appListIssue.value = null
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: AppManagerUtil.AppListAccessException) {
+                _appListIssue.value = e.issue
+                _displayedApps.value = emptyList()
+                LogUtil.e(AppConfig.ANG_PACKAGE, "Installed app list access restricted", e)
             } catch (e: Exception) {
+                _appListIssue.value = AppListIssue.Failed
+                _displayedApps.value = emptyList()
                 LogUtil.e("AppPickerViewModel", "Failed to load app list", e)
                 toastError(R.string.toast_failure)
             } finally {

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_list_unavailable">قائمة التطبيقات غير متاحة</string>
+    <string name="app_list_permission_help">اسمح بالوصول إلى قائمة التطبيقات من أذونات النظام ثم أعد المحاولة. القائمة مطلوبة لاختيار التطبيقات التي تستخدم الوكيل.</string>
+    <string name="app_list_load_failed">تعذر تحميل قائمة التطبيقات. أعد المحاولة.</string>
+    <string name="app_list_grant_access">إذن قائمة التطبيقات</string>
+    <string name="app_list_settings_unavailable">إعدادات أذونات النظام غير متاحة.</string>
+    <string name="action_retry">إعادة المحاولة</string>
+    <string name="app_picker_unknown_summary">حركة مرور لا ترتبط بتطبيق معروف</string>
+    <string name="home_new_manual">إنشاء يدوي</string>
+    <string name="home_choose_protocol">اختيار نوع الإعداد</string>
+    <string name="home_select_profile">اختر إعداداً</string>
+    <string name="home_search_empty">لا توجد إعدادات مطابقة</string>
+    <string name="log_empty_title">لا توجد سجلات</string>
+    <string name="log_empty_hint">تظهر السجلات عند استخدام الخدمة. حدّث لعرض السجلات الجديدة.</string>
+    <string name="import_failure_detail">لم يتم استيراد أي إعداد. تحقق من الرابط أو JSON. يجب أن يحتوي JSON الكامل على inbounds وoutbounds وrouting.</string>
+    <string name="form_basic">الاتصال</string>
+    <string name="form_transport">النقل</string>
+    <string name="form_security">الأمان</string>
+    <string name="form_advanced">خيارات متقدمة</string>
+    <string name="routing_condition_count">%1$d شروط مطابقة</string>
+    <string name="sub_editor_hint">اختر مجموعة لتعديلها أو أضف اشتراكاً.</string>
+    <string name="json_format">تنسيق JSON</string>
+    <string name="json_invalid">JSON غير صالح. تحقق من الصياغة قبل الحفظ.</string>
+    <string name="server_policy_group">مجموعة سياسات</string>
+    <string name="server_proxy_chain">سلسلة وكلاء</string>
+    <string name="server_custom">JSON مخصص</string>
+    <string name="json_invalid_location">خطأ JSON في السطر %1$d، العمود %2$d.</string>
+    <string name="settings_section_interface">الواجهة</string>
+    <string name="settings_section_vpn">VPN</string>
+    <string name="settings_section_core">النواة وDNS</string>
+    <string name="settings_section_mux">تعدد الإرسال</string>
+    <string name="settings_section_fragment">التجزئة</string>
+    <string name="settings_section_observatory">مراقبة الاتصال</string>
+    <string name="settings_section_advanced">متقدم</string>
+    <string name="settings_section_mode">الوضع</string>
+    <string name="routing_enable_rule">تفعيل القاعدة: %1$s</string>
+</resources>

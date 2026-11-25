@@ -1,6 +1,10 @@
 package com.v2ray.ang.ui.compose
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,7 +26,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -248,15 +251,14 @@ fun SettingsSwitchItem(
         title = title,
         description = summary,
         enabled = enabled,
-        onClick = if (enabled) {
-            { onCheckedChange(!checked) }
-        } else null,
-        modifier = modifier,
+        onClick = null,
+        modifier = modifier.toggleable(value = checked, enabled = enabled, role = Role.Switch,
+            onValueChange = onCheckedChange).semantics(mergeDescendants = true) {},
         trailing = {
             Switch(
                 checked = checked,
-                onCheckedChange = if (enabled) onCheckedChange else null,
-                modifier = Modifier.scale(0.8f),
+                onCheckedChange = null,
+                modifier = Modifier.clearAndSetSemantics {},
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = MaterialTheme.colorScheme.onSecondary,
                     checkedTrackColor = MaterialTheme.colorScheme.secondary

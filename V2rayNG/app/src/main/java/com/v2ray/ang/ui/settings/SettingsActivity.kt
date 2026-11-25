@@ -6,6 +6,16 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.viewModels
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.Text
+import androidx.compose.runtime.key
+import androidx.annotation.StringRes
+import com.v2ray.ang.ui.compose.AdaptiveContent
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -20,7 +30,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -35,12 +44,6 @@ import com.v2ray.ang.AppConfig
 import com.v2ray.ang.AppConfig.VPN
 import com.v2ray.ang.R
 import com.v2ray.ang.extension.toastError
-import com.v2ray.ang.handler.AppLocaleManager
-import com.v2ray.ang.handler.MmkvManager
-import com.v2ray.ang.handler.MmkvManager.rememberMmkvBool
-import com.v2ray.ang.handler.MmkvManager.rememberMmkvString
-import com.v2ray.ang.handler.SettingsChangeManager
-import com.v2ray.ang.root.RootManager
 import com.v2ray.ang.ui.base.BaseComponentActivity
 import com.v2ray.ang.ui.compose.AppTopBar
 import com.v2ray.ang.ui.compose.CollapsiblePreferenceGroupHeader
@@ -61,6 +64,7 @@ class SettingsActivity : BaseComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        viewModel.loadPreferences()
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.RESUMED) {
                 viewModel.refreshSystemVpnSettingsAvailability()
@@ -103,6 +107,13 @@ fun SettingsScreen(
     onSystemVpnSettingsClicked: () -> Unit
 ) {
     val scrollState = rememberScrollState()
+    val preferences by viewModel.preferences.collectAsStateWithLifecycle()
+    var selectedSection by rememberSaveable { mutableStateOf(SettingsSection.Interface) }
+    LaunchedEffect(selectedSection) { scrollState.scrollTo(0) }
+    if (!preferences.ready) {
+        androidx.compose.material3.CircularProgressIndicator(Modifier.padding(24.dp))
+        return
+    }
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val systemVpnSettingsAvailable by viewModel.systemVpnSettingsAvailable.collectAsStateWithLifecycle()
     var uiSettingsExpanded by rememberSaveable { mutableStateOf(true) }
@@ -111,75 +122,71 @@ fun SettingsScreen(
     var muxSettingsExpanded by rememberSaveable { mutableStateOf(false) }
     var fragmentSettingsExpanded by rememberSaveable { mutableStateOf(false) }
     var observatorySettingsExpanded by rememberSaveable { mutableStateOf(false) }
-    var advancedSettingsExpanded by rememberSaveable { mutableStateOf(true) }
-    var modeSettingsExpanded by rememberSaveable { mutableStateOf(true) }
+    var advancedSettingsExpanded by rememberSaveable { mutableStateOf(false) }
+    var modeSettingsExpanded by rememberSaveable { mutableStateOf(false) }
 
-    var localDns by rememberMmkvBool(AppConfig.PREF_LOCAL_DNS_ENABLED, false)
-    var fakeDns by rememberMmkvBool(AppConfig.PREF_FAKE_DNS_ENABLED, false)
-    var appendHttpProxy by rememberMmkvBool(AppConfig.PREF_APPEND_HTTP_PROXY, false)
-    var vpnDns by rememberMmkvString(AppConfig.PREF_VPN_DNS, "")
-    var vpnBypassLan by rememberMmkvString(AppConfig.PREF_VPN_BYPASS_LAN, AppConfig.DEFAULT_VPN_BYPASS_LAN)
-    var vpnInterfaceAddress by rememberMmkvString(AppConfig.PREF_VPN_INTERFACE_ADDRESS_CONFIG_INDEX, "0")
-    var vpnMtu by rememberMmkvString(AppConfig.PREF_VPN_MTU, "")
+    var localDns by viewModel.preference(preferences, AppConfig.PREF_LOCAL_DNS_ENABLED, false)
+    var fakeDns by viewModel.preference(preferences, AppConfig.PREF_FAKE_DNS_ENABLED, false)
+    var appendHttpProxy by viewModel.preference(preferences, AppConfig.PREF_APPEND_HTTP_PROXY, false)
+    var vpnDns by viewModel.preference(preferences, AppConfig.PREF_VPN_DNS, "")
+    var vpnBypassLan by viewModel.preference(preferences, AppConfig.PREF_VPN_BYPASS_LAN, AppConfig.DEFAULT_VPN_BYPASS_LAN)
+    var vpnInterfaceAddress by viewModel.preference(preferences, AppConfig.PREF_VPN_INTERFACE_ADDRESS_CONFIG_INDEX, "0")
+    var vpnMtu by viewModel.preference(preferences, AppConfig.PREF_VPN_MTU, "")
 
-    var mux by rememberMmkvBool(AppConfig.PREF_MUX_ENABLED, false)
-    var muxConcurrency by rememberMmkvString(AppConfig.PREF_MUX_CONCURRENCY, "8")
-    var muxXudpConcurrency by rememberMmkvString(AppConfig.PREF_MUX_XUDP_CONCURRENCY, AppConfig.DEFAULT_MUX_XUDP_CONCURRENCY)
-    var muxXudpQuic by rememberMmkvString(AppConfig.PREF_MUX_XUDP_QUIC, "reject")
+    var mux by viewModel.preference(preferences, AppConfig.PREF_MUX_ENABLED, false)
+    var muxConcurrency by viewModel.preference(preferences, AppConfig.PREF_MUX_CONCURRENCY, "8")
+    var muxXudpConcurrency by viewModel.preference(preferences, AppConfig.PREF_MUX_XUDP_CONCURRENCY, AppConfig.DEFAULT_MUX_XUDP_CONCURRENCY)
+    var muxXudpQuic by viewModel.preference(preferences, AppConfig.PREF_MUX_XUDP_QUIC, "reject")
 
-    var fragment by rememberMmkvBool(AppConfig.PREF_FRAGMENT_ENABLED, false)
-    var fragmentPackets by rememberMmkvString(AppConfig.PREF_FRAGMENT_PACKETS, "tlshello")
-    var fragmentLength by rememberMmkvString(AppConfig.PREF_FRAGMENT_LENGTH, "50-100")
-    var fragmentInterval by rememberMmkvString(AppConfig.PREF_FRAGMENT_INTERVAL, "10-20")
-    var fragmentMaxSplit by rememberMmkvString(AppConfig.PREF_FRAGMENT_MAXSPLIT, "10")
-    var observatoryLeastPingInterval by rememberMmkvString(AppConfig.PREF_OBSERVATORY_LEAST_PING_INTERVAL, AppConfig.OBSERVATORY_LEAST_PING_INTERVAL)
-    var observatoryLeastLoadInterval by rememberMmkvString(AppConfig.PREF_OBSERVATORY_LEAST_LOAD_INTERVAL, AppConfig.OBSERVATORY_LEAST_LOAD_INTERVAL)
-    var observatoryLeastLoadMethod by rememberMmkvString(AppConfig.PREF_OBSERVATORY_LEAST_LOAD_METHOD, AppConfig.OBSERVATORY_LEAST_LOAD_METHOD)
-    var observatoryLeastLoadSampling by rememberMmkvString(AppConfig.PREF_OBSERVATORY_LEAST_LOAD_SAMPLING, AppConfig.OBSERVATORY_LEAST_LOAD_SAMPLING)
-    var observatoryLeastLoadTimeout by rememberMmkvString(AppConfig.PREF_OBSERVATORY_LEAST_LOAD_TIMEOUT, AppConfig.OBSERVATORY_LEAST_LOAD_TIMEOUT)
+    var fragment by viewModel.preference(preferences, AppConfig.PREF_FRAGMENT_ENABLED, false)
+    var fragmentPackets by viewModel.preference(preferences, AppConfig.PREF_FRAGMENT_PACKETS, "tlshello")
+    var fragmentLength by viewModel.preference(preferences, AppConfig.PREF_FRAGMENT_LENGTH, "50-100")
+    var fragmentInterval by viewModel.preference(preferences, AppConfig.PREF_FRAGMENT_INTERVAL, "10-20")
+    var fragmentMaxSplit by viewModel.preference(preferences, AppConfig.PREF_FRAGMENT_MAXSPLIT, "10")
+    var observatoryLeastPingInterval by viewModel.preference(preferences, AppConfig.PREF_OBSERVATORY_LEAST_PING_INTERVAL, AppConfig.OBSERVATORY_LEAST_PING_INTERVAL)
+    var observatoryLeastLoadInterval by viewModel.preference(preferences, AppConfig.PREF_OBSERVATORY_LEAST_LOAD_INTERVAL, AppConfig.OBSERVATORY_LEAST_LOAD_INTERVAL)
+    var observatoryLeastLoadMethod by viewModel.preference(preferences, AppConfig.PREF_OBSERVATORY_LEAST_LOAD_METHOD, AppConfig.OBSERVATORY_LEAST_LOAD_METHOD)
+    var observatoryLeastLoadSampling by viewModel.preference(preferences, AppConfig.PREF_OBSERVATORY_LEAST_LOAD_SAMPLING, AppConfig.OBSERVATORY_LEAST_LOAD_SAMPLING)
+    var observatoryLeastLoadTimeout by viewModel.preference(preferences, AppConfig.PREF_OBSERVATORY_LEAST_LOAD_TIMEOUT, AppConfig.OBSERVATORY_LEAST_LOAD_TIMEOUT)
 
-    var mode by rememberMmkvString(AppConfig.PREF_MODE, VPN)
-    var enableRootMode by rememberMmkvBool(AppConfig.PREF_ROOT_MODE_ENABLE, false)
-    var lanSharing by rememberMmkvBool(AppConfig.PREF_ROOT_LAN_SHARING, false)
+    var mode by viewModel.preference(preferences, AppConfig.PREF_MODE, VPN)
+    var enableRootMode by viewModel.preference(preferences, AppConfig.PREF_ROOT_MODE_ENABLE, false)
+    var lanSharing by viewModel.preference(preferences, AppConfig.PREF_ROOT_LAN_SHARING, false)
 
-    var hevTunLogLevel by rememberMmkvString(AppConfig.PREF_HEV_TUNNEL_LOGLEVEL, AppConfig.DEFAULT_HEV_TUNNEL_LOGLEVEL)
-    var hevTunRwTimeout by rememberMmkvString(AppConfig.PREF_HEV_TUNNEL_RW_TIMEOUT, "")
-    var useHevTun by rememberMmkvBool(AppConfig.PREF_USE_HEV_TUNNEL, true)
+    var hevTunLogLevel by viewModel.preference(preferences, AppConfig.PREF_HEV_TUNNEL_LOGLEVEL, AppConfig.DEFAULT_HEV_TUNNEL_LOGLEVEL)
+    var hevTunRwTimeout by viewModel.preference(preferences, AppConfig.PREF_HEV_TUNNEL_RW_TIMEOUT, "")
+    var useHevTun by viewModel.preference(preferences, AppConfig.PREF_USE_HEV_TUNNEL, true)
 
-    var enableLocalProxy by rememberMmkvBool(AppConfig.PREF_ENABLE_LOCAL_PROXY, true)
-    var socksPort by rememberMmkvString(AppConfig.PREF_SOCKS_PORT, "")
-    var dynamicSocksPort by rememberMmkvBool(AppConfig.PREF_DYNAMIC_SOCKS_PORT, false)
-    var socksUsername by rememberMmkvString(AppConfig.PREF_SOCKS_USERNAME, "")
-    var socksPassword by rememberMmkvString(AppConfig.PREF_SOCKS_PASSWORD, "")
-    var socksEnableUdp by rememberMmkvBool(AppConfig.PREF_SOCKS_ENABLE_UDP, AppConfig.DEFAULT_SOCKS_ENABLE_UDP)
-    var proxySharing by rememberMmkvBool(AppConfig.PREF_PROXY_SHARING, false)
+    var enableLocalProxy by viewModel.preference(preferences, AppConfig.PREF_ENABLE_LOCAL_PROXY, true)
+    var socksPort by viewModel.preference(preferences, AppConfig.PREF_SOCKS_PORT, "")
+    var dynamicSocksPort by viewModel.preference(preferences, AppConfig.PREF_DYNAMIC_SOCKS_PORT, false)
+    var socksUsername by viewModel.preference(preferences, AppConfig.PREF_SOCKS_USERNAME, "")
+    var socksPassword by viewModel.preference(preferences, AppConfig.PREF_SOCKS_PASSWORD, "")
+    var socksEnableUdp by viewModel.preference(preferences, AppConfig.PREF_SOCKS_ENABLE_UDP, AppConfig.DEFAULT_SOCKS_ENABLE_UDP)
+    var proxySharing by viewModel.preference(preferences, AppConfig.PREF_PROXY_SHARING, false)
 
-    var speedEnabled by rememberMmkvBool(AppConfig.PREF_SPEED_ENABLED, false)
-    var confirmRemove by rememberMmkvBool(AppConfig.PREF_CONFIRM_REMOVE, false)
-    var doubleColumnDisplay by rememberMmkvBool(AppConfig.PREF_DOUBLE_COLUMN_DISPLAY, false)
-    var groupAllDisplay by rememberMmkvBool(AppConfig.PREF_GROUP_ALL_DISPLAY, false)
-    var language by remember {
-        mutableStateOf(
-            MmkvManager.decodeSettingsString(AppConfig.PREF_LANGUAGE, "auto") ?: "auto"
-        )
-    }
-    var uiModeNight by rememberMmkvString(AppConfig.PREF_UI_MODE_NIGHT, ThemeManager.DEFAULT_THEME_MODE)
-    var dynamicColor by rememberMmkvBool(AppConfig.PREF_DYNAMIC_COLOR, ThemeManager.DEFAULT_DYNAMIC_COLOR)
+    var speedEnabled by viewModel.preference(preferences, AppConfig.PREF_SPEED_ENABLED, false)
+    var confirmRemove by viewModel.preference(preferences, AppConfig.PREF_CONFIRM_REMOVE, false)
+    var doubleColumnDisplay by viewModel.preference(preferences, AppConfig.PREF_DOUBLE_COLUMN_DISPLAY, false)
+    var groupAllDisplay by viewModel.preference(preferences, AppConfig.PREF_GROUP_ALL_DISPLAY, false)
+    var language by viewModel.preference(preferences, AppConfig.PREF_LANGUAGE, "auto")
+    var uiModeNight by viewModel.preference(preferences, AppConfig.PREF_UI_MODE_NIGHT, ThemeManager.DEFAULT_THEME_MODE)
+    var dynamicColor by viewModel.preference(preferences, AppConfig.PREF_DYNAMIC_COLOR, ThemeManager.DEFAULT_DYNAMIC_COLOR)
 
-    var ipv6Enabled by rememberMmkvBool(AppConfig.PREF_IPV6_ENABLED, false)
-    var preferIpv6 by rememberMmkvBool(AppConfig.PREF_PREFER_IPV6, false)
-    var sniffingEnabled by rememberMmkvBool(AppConfig.PREF_SNIFFING_ENABLED, true)
-    var routeOnlyEnabled by rememberMmkvBool(AppConfig.PREF_ROUTE_ONLY_ENABLED, false)
-    var remoteDns by rememberMmkvString(AppConfig.PREF_REMOTE_DNS, "")
-    var domesticDns by rememberMmkvString(AppConfig.PREF_DOMESTIC_DNS, "")
-    var dnsHosts by rememberMmkvString(AppConfig.PREF_DNS_HOSTS, "")
-    var coreLogLevel by rememberMmkvString(AppConfig.PREF_LOGLEVEL, "warning")
-    var outboundResolveMethod by rememberMmkvString(AppConfig.PREF_OUTBOUND_DOMAIN_RESOLVE_METHOD, AppConfig.DEFAULT_OUTBOUND_DOMAIN_RESOLVE_METHOD)
+    var ipv6Enabled by viewModel.preference(preferences, AppConfig.PREF_IPV6_ENABLED, false)
+    var preferIpv6 by viewModel.preference(preferences, AppConfig.PREF_PREFER_IPV6, false)
+    var sniffingEnabled by viewModel.preference(preferences, AppConfig.PREF_SNIFFING_ENABLED, true)
+    var routeOnlyEnabled by viewModel.preference(preferences, AppConfig.PREF_ROUTE_ONLY_ENABLED, false)
+    var remoteDns by viewModel.preference(preferences, AppConfig.PREF_REMOTE_DNS, "")
+    var domesticDns by viewModel.preference(preferences, AppConfig.PREF_DOMESTIC_DNS, "")
+    var dnsHosts by viewModel.preference(preferences, AppConfig.PREF_DNS_HOSTS, "")
+    var coreLogLevel by viewModel.preference(preferences, AppConfig.PREF_LOGLEVEL, "warning")
+    var outboundResolveMethod by viewModel.preference(preferences, AppConfig.PREF_OUTBOUND_DOMAIN_RESOLVE_METHOD, AppConfig.DEFAULT_OUTBOUND_DOMAIN_RESOLVE_METHOD)
 
-    var isBooted by rememberMmkvBool(AppConfig.PREF_IS_BOOTED, false)
-    var delayTestUrl by rememberMmkvString(AppConfig.PREF_DELAY_TEST_URL, "")
-    var realPingConcurrency by rememberMmkvString(AppConfig.PREF_REAL_PING_CONCURRENCY, "16")
-    var ipApiUrl by rememberMmkvString(AppConfig.PREF_IP_API_URL, "")
+    var isBooted by viewModel.preference(preferences, AppConfig.PREF_IS_BOOTED, false)
+    var delayTestUrl by viewModel.preference(preferences, AppConfig.PREF_DELAY_TEST_URL, "")
+    var realPingConcurrency by viewModel.preference(preferences, AppConfig.PREF_REAL_PING_CONCURRENCY, "16")
+    var ipApiUrl by viewModel.preference(preferences, AppConfig.PREF_IP_API_URL, "")
 
     val isVpn = mode == VPN
     val hevTunEnabled = isVpn && useHevTun
@@ -188,13 +195,6 @@ fun SettingsScreen(
     val muxXudpConcurrencyInt = muxXudpConcurrency.toIntOrNull() ?: AppConfig.DEFAULT_MUX_XUDP_CONCURRENCY.toInt()
 
     val dynamicColorSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-    LaunchedEffect(dynamicColorSupported) {
-        if (!dynamicColorSupported && dynamicColor) {
-            dynamicColor = false
-            ThemeManager.setDynamicColorEnabled(false)
-        }
-    }
-
     val languageEntries = stringArrayResource(R.array.language_select).toList()
     val languageValues = stringArrayResource(R.array.language_select_value).toList()
     val uiModeNightEntries = stringArrayResource(R.array.ui_mode_night).toList()
@@ -228,19 +228,38 @@ fun SettingsScreen(
             )
         }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScrollbar(scrollState)
-                .verticalScroll(scrollState)
-        ) {
-            CollapsiblePreferenceGroupHeader(
-                title = stringResource(R.string.title_ui_settings),
-                expanded = uiSettingsExpanded,
-                onExpandedChange = { uiSettingsExpanded = it }
-            )
-            if (uiSettingsExpanded) {
+        BoxWithConstraints(Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding)) {
+            val wide = maxWidth >= 840.dp
+            Row(Modifier.fillMaxSize()) {
+                if (wide) {
+                    Column(Modifier.width(220.dp).verticalScroll(rememberScrollState()).padding(12.dp)) {
+                        SettingsSection.entries.forEach { section ->
+                            key(section) {
+                                NavigationDrawerItem(
+                                    label = { Text(stringResource(section.title)) },
+                                    selected = selectedSection == section,
+                                    onClick = { selectedSection = section },
+                                )
+                            }
+                        }
+                    }
+                }
+                AdaptiveContent(Modifier.weight(1f), maxWidth = 720.dp) {
+                Column(
+                    modifier = Modifier.fillMaxSize().imePadding()
+                        .verticalScrollbar(scrollState).verticalScroll(scrollState)
+                        .padding(vertical = 8.dp),
+                ) {
+            if (!wide || selectedSection == SettingsSection.Interface) {
+            if (wide) {
+                com.v2ray.ang.ui.compose.PreferenceGroupHeader(stringResource(R.string.title_ui_settings))
+            } else {
+                CollapsiblePreferenceGroupHeader(
+                    title = stringResource(R.string.title_ui_settings), expanded = uiSettingsExpanded,
+                    onExpandedChange = { uiSettingsExpanded = it },
+                )
+            }
+            if (wide || uiSettingsExpanded) {
                 SettingsSwitchItem(
                     title = stringResource(R.string.title_pref_speed_enabled),
                     summary = stringResource(R.string.summary_pref_speed_enabled),
@@ -259,7 +278,6 @@ fun SettingsScreen(
                     checked = doubleColumnDisplay,
                     onCheckedChange = {
                         doubleColumnDisplay = it
-                        SettingsChangeManager.makeSetupGroupTab()
                     }
                 )
                 SettingsSwitchItem(
@@ -268,7 +286,6 @@ fun SettingsScreen(
                     checked = groupAllDisplay,
                     onCheckedChange = {
                         groupAllDisplay = it
-                        SettingsChangeManager.makeSetupGroupTab()
                     }
                 )
                 SettingsSwitchItem(
@@ -278,7 +295,6 @@ fun SettingsScreen(
                     enabled = dynamicColorSupported,
                     onCheckedChange = {
                         dynamicColor = it
-                        ThemeManager.setDynamicColorEnabled(it)
                     }
                 )
                 SettingsListItem(
@@ -288,7 +304,6 @@ fun SettingsScreen(
                     selectedValue = language,
                     onSelected = {
                         language = it
-                        AppLocaleManager.setApplicationLanguage(it)
                     }
                 )
                 SettingsListItem(
@@ -298,17 +313,21 @@ fun SettingsScreen(
                     selectedValue = uiModeNight,
                     onSelected = {
                         uiModeNight = it
-                        ThemeManager.setThemeMode(it)
                     }
                 )
             }
 
-            CollapsiblePreferenceGroupHeader(
-                title = stringResource(R.string.title_vpn_settings),
-                expanded = vpnSettingsExpanded,
-                onExpandedChange = { vpnSettingsExpanded = it }
-            )
-            if (vpnSettingsExpanded) {
+            }
+            if (!wide || selectedSection == SettingsSection.Vpn) {
+            if (wide) {
+                com.v2ray.ang.ui.compose.PreferenceGroupHeader(stringResource(R.string.title_vpn_settings))
+            } else {
+                CollapsiblePreferenceGroupHeader(
+                    title = stringResource(R.string.title_vpn_settings), expanded = vpnSettingsExpanded,
+                    onExpandedChange = { vpnSettingsExpanded = it },
+                )
+            }
+            if (wide || vpnSettingsExpanded) {
                 SettingsSwitchItem(
                     title = stringResource(R.string.title_pref_ipv6_enabled),
                     summary = stringResource(R.string.summary_pref_ipv6_enabled),
@@ -400,12 +419,17 @@ fun SettingsScreen(
                 )
             }
 
-            CollapsiblePreferenceGroupHeader(
-                title = stringResource(R.string.title_core_settings),
-                expanded = coreSettingsExpanded,
-                onExpandedChange = { coreSettingsExpanded = it }
-            )
-            if (coreSettingsExpanded) {
+            }
+            if (!wide || selectedSection == SettingsSection.Core) {
+            if (wide) {
+                com.v2ray.ang.ui.compose.PreferenceGroupHeader(stringResource(R.string.title_core_settings))
+            } else {
+                CollapsiblePreferenceGroupHeader(
+                    title = stringResource(R.string.title_core_settings), expanded = coreSettingsExpanded,
+                    onExpandedChange = { coreSettingsExpanded = it },
+                )
+            }
+            if (wide || coreSettingsExpanded) {
                 SettingsSwitchItem(
                     title = stringResource(R.string.title_pref_sniffing_enabled),
                     summary = stringResource(R.string.summary_pref_sniffing_enabled),
@@ -504,12 +528,17 @@ fun SettingsScreen(
                 )
             }
 
-            CollapsiblePreferenceGroupHeader(
-                title = stringResource(R.string.title_mux_settings),
-                expanded = muxSettingsExpanded,
-                onExpandedChange = { muxSettingsExpanded = it }
-            )
-            if (muxSettingsExpanded) {
+            }
+            if (!wide || selectedSection == SettingsSection.Mux) {
+            if (wide) {
+                com.v2ray.ang.ui.compose.PreferenceGroupHeader(stringResource(R.string.title_mux_settings))
+            } else {
+                CollapsiblePreferenceGroupHeader(
+                    title = stringResource(R.string.title_mux_settings), expanded = muxSettingsExpanded,
+                    onExpandedChange = { muxSettingsExpanded = it },
+                )
+            }
+            if (wide || muxSettingsExpanded) {
                 SettingsSwitchItem(
                     title = stringResource(R.string.title_pref_mux_enabled),
                     summary = stringResource(R.string.summary_pref_mux_enabled),
@@ -540,12 +569,17 @@ fun SettingsScreen(
                 )
             }
 
-            CollapsiblePreferenceGroupHeader(
-                title = stringResource(R.string.title_fragment_settings),
-                expanded = fragmentSettingsExpanded,
-                onExpandedChange = { fragmentSettingsExpanded = it }
-            )
-            if (fragmentSettingsExpanded) {
+            }
+            if (!wide || selectedSection == SettingsSection.Fragment) {
+            if (wide) {
+                com.v2ray.ang.ui.compose.PreferenceGroupHeader(stringResource(R.string.title_fragment_settings))
+            } else {
+                CollapsiblePreferenceGroupHeader(
+                    title = stringResource(R.string.title_fragment_settings), expanded = fragmentSettingsExpanded,
+                    onExpandedChange = { fragmentSettingsExpanded = it },
+                )
+            }
+            if (wide || fragmentSettingsExpanded) {
                 SettingsSwitchItem(
                     title = stringResource(R.string.title_pref_fragment_enabled),
                     checked = fragment,
@@ -580,12 +614,17 @@ fun SettingsScreen(
                 )
             }
 
-            CollapsiblePreferenceGroupHeader(
-                title = stringResource(R.string.title_observatory_settings),
-                expanded = observatorySettingsExpanded,
-                onExpandedChange = { observatorySettingsExpanded = it }
-            )
-            if (observatorySettingsExpanded) {
+            }
+            if (!wide || selectedSection == SettingsSection.Observatory) {
+            if (wide) {
+                com.v2ray.ang.ui.compose.PreferenceGroupHeader(stringResource(R.string.title_observatory_settings))
+            } else {
+                CollapsiblePreferenceGroupHeader(
+                    title = stringResource(R.string.title_observatory_settings), expanded = observatorySettingsExpanded,
+                    onExpandedChange = { observatorySettingsExpanded = it },
+                )
+            }
+            if (wide || observatorySettingsExpanded) {
                 SettingsEditItem(
                     title = stringResource(R.string.title_pref_observatory_least_ping_interval),
                     value = observatoryLeastPingInterval,
@@ -632,12 +671,17 @@ fun SettingsScreen(
                 )
             }
 
-            CollapsiblePreferenceGroupHeader(
-                title = stringResource(R.string.title_advanced),
-                expanded = advancedSettingsExpanded,
-                onExpandedChange = { advancedSettingsExpanded = it }
-            )
-            if (advancedSettingsExpanded) {
+            }
+            if (!wide || selectedSection == SettingsSection.Advanced) {
+            if (wide) {
+                com.v2ray.ang.ui.compose.PreferenceGroupHeader(stringResource(R.string.title_advanced))
+            } else {
+                CollapsiblePreferenceGroupHeader(
+                    title = stringResource(R.string.title_advanced), expanded = advancedSettingsExpanded,
+                    onExpandedChange = { advancedSettingsExpanded = it },
+                )
+            }
+            if (wide || advancedSettingsExpanded) {
                 SettingsSwitchItem(
                     title = stringResource(R.string.title_pref_is_booted),
                     summary = stringResource(R.string.summary_pref_is_booted),
@@ -669,12 +713,17 @@ fun SettingsScreen(
                 )
             }
 
-            CollapsiblePreferenceGroupHeader(
-                title = stringResource(R.string.title_mode_settings),
-                expanded = modeSettingsExpanded,
-                onExpandedChange = { modeSettingsExpanded = it }
-            )
-            if (modeSettingsExpanded) {
+            }
+            if (!wide || selectedSection == SettingsSection.Mode) {
+            if (wide) {
+                com.v2ray.ang.ui.compose.PreferenceGroupHeader(stringResource(R.string.title_mode_settings))
+            } else {
+                CollapsiblePreferenceGroupHeader(
+                    title = stringResource(R.string.title_mode_settings), expanded = modeSettingsExpanded,
+                    onExpandedChange = { modeSettingsExpanded = it },
+                )
+            }
+            if (wide || modeSettingsExpanded) {
                 SettingsListItem(
                     title = stringResource(R.string.title_mode),
                     entries = modeEntries,
@@ -690,34 +739,33 @@ fun SettingsScreen(
                     title = stringResource(R.string.title_root_mode_enabled),
                     summary = stringResource(R.string.summary_root_mode_enabled),
                     checked = enableRootMode,
-                    onCheckedChange = { newValue ->
-                        if (newValue && !RootManager.cachedRoot()) {
-                            viewModel.checkAndRequestRoot {
-                                enableRootMode = true
-                            }
-                        } else {
-                            enableRootMode = newValue
-                        }
-                    }
+                    onCheckedChange = { viewModel.setRootPreference(AppConfig.PREF_ROOT_MODE_ENABLE, it) }
                 )
                 SettingsSwitchItem(
                     title = stringResource(R.string.title_root_lan_sharing),
                     summary = stringResource(R.string.summary_root_lan_sharing),
                     checked = lanSharing,
-                    onCheckedChange = { newValue ->
-                        if (newValue && !RootManager.cachedRoot()) {
-                            viewModel.checkAndRequestRoot {
-                                lanSharing = true
-                            }
-                        } else {
-                            lanSharing = newValue
-                        }
-                    }
+                    onCheckedChange = { viewModel.setRootPreference(AppConfig.PREF_ROOT_LAN_SHARING, it) }
                 )
             }
 
+            }
             Spacer(modifier = Modifier.height(24.dp))
             NavigationBarsSpacer()
+                }
+                }
+            }
         }
     }
+}
+
+private enum class SettingsSection(@StringRes val title: Int) {
+    Interface(R.string.settings_section_interface),
+    Vpn(R.string.settings_section_vpn),
+    Core(R.string.settings_section_core),
+    Mux(R.string.settings_section_mux),
+    Fragment(R.string.settings_section_fragment),
+    Observatory(R.string.settings_section_observatory),
+    Advanced(R.string.settings_section_advanced),
+    Mode(R.string.settings_section_mode)
 }

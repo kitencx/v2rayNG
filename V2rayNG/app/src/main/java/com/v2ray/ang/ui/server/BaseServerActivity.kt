@@ -1,9 +1,16 @@
 package com.v2ray.ang.ui.server
 
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.CancellationException
+import com.v2ray.ang.util.LogUtil
 import android.os.Bundle
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.BoxWithConstraints
+import com.v2ray.ang.ui.compose.AdaptiveContent
+import com.v2ray.ang.ui.compose.AppIconAction
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -111,19 +118,27 @@ abstract class BaseServerActivity : BaseComponentActivity() {
                 onValueChange = { state.remarks = it },
                 isError = state.isRemarksError
             )
-            FormTextField(
-                label = stringResource(R.string.server_lab_address),
-                value = state.address,
-                onValueChange = { state.address = it },
-                isError = state.isAddressError
-            )
-            FormTextField(
-                label = stringResource(R.string.server_lab_port),
-                value = state.port,
-                onValueChange = { state.port = it },
-                keyboardType = KeyboardType.Number,
-                isError = state.isPortError
-            )
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val address: @Composable (Modifier) -> Unit = { fieldModifier ->
+                    FormTextField(
+                        label = stringResource(R.string.server_lab_address), value = state.address,
+                        onValueChange = { state.address = it }, isError = state.isAddressError,
+                        keyboardType = KeyboardType.Uri, modifier = fieldModifier, maxLines = 1,
+                    )
+                }
+                val port: @Composable (Modifier) -> Unit = { fieldModifier ->
+                    FormTextField(
+                        label = stringResource(R.string.server_lab_port), value = state.port,
+                        onValueChange = { state.port = it }, keyboardType = KeyboardType.Number,
+                        isError = state.isPortError, modifier = fieldModifier, maxLines = 1,
+                    )
+                }
+                if (maxWidth >= 600.dp) {
+                    Row { address(Modifier.weight(3f)); port(Modifier.weight(1f)) }
+                } else {
+                    Column { address(Modifier); port(Modifier) }
+                }
+            }
         }
     }
 
@@ -464,6 +479,7 @@ abstract class BaseServerActivity : BaseComponentActivity() {
                     title = title,
                     onBackClick = { finish() },
                     actions = {
+                        AppIconAction(stringResource(R.string.acc_save), R.drawable.ic_fab_check, onSaveClick, emphasized = true)
                         if (editGuid.isNotEmpty() && !isRunning) {
                             IconButton(onClick = { showDeleteDialog = true }) {
                                 Icon(
@@ -476,11 +492,10 @@ abstract class BaseServerActivity : BaseComponentActivity() {
                 )
             }
         ) { innerPadding ->
+            AdaptiveContent(Modifier.padding(innerPadding).consumeWindowInsets(innerPadding)) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding)
-                    .consumeWindowInsets(innerPadding)
                     .imePadding()
                     .verticalScroll(scrollState)
                     .verticalScrollbar(scrollState)
@@ -488,13 +503,8 @@ abstract class BaseServerActivity : BaseComponentActivity() {
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 content()
-                Button(
-                    onClick = onSaveClick,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                ) {
-                    Text(stringResource(R.string.acc_save))
-                }
                 NavigationBarsSpacer()
+            }
             }
         }
         if (showDeleteDialog) {
@@ -511,13 +521,20 @@ abstract class BaseServerActivity : BaseComponentActivity() {
     }
 
     private fun deleteServer(guid: String) {
-        if (guid.isEmpty() || guid == MmkvManager.getSelectServer()) {
+        if (isProfileDeletionBlocked(guid, editGuid, isRunning)) {
             toast(R.string.toast_action_not_allowed)
             return
         }
-        MmkvManager.removeServer(guid)
-        ProfileEditorResult.run {
-            finishDeleted(guid)
+        lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) { MmkvManager.removeServer(guid) }
+                ProfileEditorResult.run { finishDeleted(guid) }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                LogUtil.e(com.v2ray.ang.AppConfig.TAG, "Failed to delete profile: $guid", error)
+                toast(R.string.toast_failure)
+            }
         }
     }
 }

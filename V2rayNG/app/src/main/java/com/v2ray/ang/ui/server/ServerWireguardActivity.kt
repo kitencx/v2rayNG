@@ -8,6 +8,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import com.v2ray.ang.AppConfig
 import com.v2ray.ang.R
 import com.v2ray.ang.enums.EConfigType
+import com.v2ray.ang.ui.compose.FormSection
 import com.v2ray.ang.ui.compose.FormTextField
 
 class ServerWireguardActivity : BaseServerActivity() {
@@ -29,8 +30,10 @@ class ServerWireguardActivity : BaseServerActivity() {
             title = serverConfigType.toString(),
             onSaveClick = { saveServer(uiState) }
         ) {
-            CommonBasicFields(uiState)
-            WireguardProtocolFields(uiState)
+            FormSection(stringResource(R.string.form_basic)) {
+                CommonBasicFields(uiState)
+                WireguardProtocolFields(uiState)
+            }
 
         }
     }

@@ -11,6 +11,7 @@ import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.ui.AppSelection
 import com.v2ray.ang.ui.base.BaseViewModel
 import com.v2ray.ang.util.AppManagerUtil
+import com.v2ray.ang.util.AppListIssue
 import com.v2ray.ang.util.HttpUtil
 import com.v2ray.ang.util.LogUtil
 import com.v2ray.ang.util.Utils
@@ -50,6 +51,8 @@ class PerAppProxyViewModel(application: Application) : BaseViewModel(application
     private var appsAll: List<AppInfo>? = null
     private var currentQuery = ""
     private var isAppListLoading = false
+    private val _appListIssue = MutableStateFlow<AppListIssue?>(null)
+    val appListIssue: StateFlow<AppListIssue?> = _appListIssue.asStateFlow()
 
     // Blacklist operations
     fun toggle(packageName: String) {
@@ -90,7 +93,9 @@ class PerAppProxyViewModel(application: Application) : BaseViewModel(application
     }
 
     // Load and filter apps
-    fun loadApps(context: Context) {
+    fun loadApps(context: Context, forceReload: Boolean = false) {
+        if (isAppListLoading) return
+        if (forceReload) appsAll = null
         if (appsAll != null || isAppListLoading) return
 
         val applicationContext = context.applicationContext
@@ -103,9 +108,16 @@ class PerAppProxyViewModel(application: Application) : BaseViewModel(application
                 }
                 appsAll = apps
                 _displayedApps.value = applyFilter(currentQuery)
+                _appListIssue.value = null
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: AppManagerUtil.AppListAccessException) {
+                _appListIssue.value = e.issue
+                _displayedApps.value = emptyList()
+                LogUtil.e(AppConfig.ANG_PACKAGE, "Installed app list access restricted", e)
             } catch (e: Exception) {
+                _appListIssue.value = AppListIssue.Failed
+                _displayedApps.value = emptyList()
                 LogUtil.e(AppConfig.ANG_PACKAGE, "Error loading apps", e)
             } finally {
                 isAppListLoading = false

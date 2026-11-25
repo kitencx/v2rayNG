@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_status_loading">কনফিগারেশন লোড হচ্ছে</string>
+    <string name="home_status_empty">কনফিগারেশন নেই</string>
+    <string name="home_status_select">কিছু নির্বাচন করা হয়নি</string>
+    <string name="home_status_stopped">পরিষেবা বন্ধ</string>
+    <string name="home_status_running">পরিষেবা চলছে</string>
+    <string name="home_network_unchecked">নেটওয়ার্ক পরীক্ষা করা হয়নি</string>
+    <string name="home_network_available">নেটওয়ার্ক উপলব্ধ</string>
+    <string name="home_network_failed">নেটওয়ার্ক সমস্যা</string>
+</resources>

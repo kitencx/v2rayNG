@@ -4,7 +4,14 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.semantics
+import com.v2ray.ang.AppConfig
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -41,6 +48,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.annotation.DrawableRes
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -58,8 +68,25 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.v2ray.ang.R
+import com.v2ray.ang.extension.toast
 import com.v2ray.ang.util.AppIconFetcher
 import sh.calvin.reorderable.ReorderableCollectionItemScope
+
+@Composable
+fun AppIconAction(label: String, @DrawableRes icon: Int, onClick: () -> Unit, emphasized: Boolean = false) {
+    val context = LocalContext.current
+    val colors = MaterialTheme.colorScheme
+    Box(
+        Modifier.size(48.dp).clip(MaterialTheme.shapes.medium)
+            .background(if (emphasized) colors.primary else Color.Transparent)
+            .combinedClickable(role = Role.Button, onClick = onClick, onLongClick = { context.toast(label) })
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(painterResource(icon), contentDescription = null,
+            tint = if (emphasized) colors.onPrimary else colors.onSurface)
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -170,7 +197,8 @@ fun AppListItem(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) }
+            .toggleable(value = checked, role = Role.Checkbox, onValueChange = onCheckedChange)
+            .semantics(mergeDescendants = true) {}
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -204,7 +232,8 @@ fun AppListItem(
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = packageName,
+                text = if (packageName == AppConfig.UNIDENTIFIED_PACKAGE) stringResource(R.string.app_picker_unknown_summary) else packageName,
+                modifier = Modifier.clearAndSetSemantics {},
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -213,7 +242,8 @@ fun AppListItem(
         }
         Checkbox(
             checked = checked,
-            onCheckedChange = onCheckedChange,
+            onCheckedChange = null,
+            modifier = Modifier.clearAndSetSemantics {},
             colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.secondary)
         )
     }

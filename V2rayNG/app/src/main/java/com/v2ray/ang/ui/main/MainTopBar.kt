@@ -1,6 +1,14 @@
 package com.v2ray.ang.ui.main
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.heightIn
@@ -44,8 +52,11 @@ fun MainTopBar(
     onAction: (MainAction) -> Unit,
     onMoreMenuAction: (MainMoreMenuAction) -> Unit
 ) {
+    val actionColors = mainControlPalette(MainControlTone.Info)
+    val neutralColors = MaterialTheme.colorScheme.onSurfaceVariant
     var showImportMenu by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
+    var showManualTypes by remember { mutableStateOf(false) }
     val importMenuScrollState = rememberScrollState()
     val moreMenuScrollState = rememberScrollState()
     val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -75,12 +86,12 @@ fun MainTopBar(
         actions = {
             if (!showSearch) {
                 IconButton(onClick = { onSearchToggle(true) }) {
-                    Icon(painterResource(R.drawable.ic_search_24dp), contentDescription = stringResource(R.string.acc_search))
+                    Icon(painterResource(R.drawable.ic_search_24dp), contentDescription = stringResource(R.string.acc_search), tint = neutralColors)
                 }
             }
             Box(modifier = Modifier.wrapContentSize(Alignment.TopEnd)) {
                 IconButton(onClick = { showImportMenu = true }) {
-                    Icon(painterResource(R.drawable.ic_add_24dp), contentDescription = stringResource(R.string.acc_add))
+                    Icon(painterResource(R.drawable.ic_add_24dp), contentDescription = stringResource(R.string.acc_add), tint = actionColors.content)
                 }
                 DropdownMenu(
                     expanded = showImportMenu,
@@ -99,6 +110,10 @@ fun MainTopBar(
                         text = { Text(stringResource(R.string.home_import_text)) },
                         onClick = { showImportMenu = false; onImportText() },
                     )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.home_new_manual)) },
+                        onClick = { showImportMenu = false; showManualTypes = true },
+                    )
                     ImportMenuContent(
                         hasCamera = hasCamera,
                         onAction = { action ->
@@ -110,7 +125,7 @@ fun MainTopBar(
             }
             Box(modifier = Modifier.wrapContentSize(Alignment.TopEnd)) {
                 IconButton(onClick = { showMenu = true }) {
-                    Icon(painterResource(R.drawable.ic_more_vert_24dp), contentDescription = stringResource(R.string.acc_more))
+                    Icon(painterResource(R.drawable.ic_more_vert_24dp), contentDescription = stringResource(R.string.acc_more), tint = neutralColors)
                 }
                 DropdownMenu(
                     expanded = showMenu,
@@ -129,4 +144,24 @@ fun MainTopBar(
             }
         }
     )
+    if (showManualTypes) {
+        AlertDialog(
+            onDismissRequest = { showManualTypes = false },
+            title = { Text(stringResource(R.string.home_choose_protocol)) },
+            text = {
+                LazyVerticalGrid(columns = GridCells.Fixed(2),
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(ImportMenuAction.entries.filter { it.action is MainAction.ImportManually }, key = { it.name }) { item ->
+                        OutlinedButton(onClick = { showManualTypes = false; onAction(item.action) }) {
+                            Text(stringResource(item.labelRes))
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showManualTypes = false }) { Text(stringResource(R.string.action_cancel)) } },
+        )
+    }
+
 }

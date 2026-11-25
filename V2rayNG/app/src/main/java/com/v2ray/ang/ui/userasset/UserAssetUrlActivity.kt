@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import com.v2ray.ang.ui.compose.AdaptiveContent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,6 +30,7 @@ import com.v2ray.ang.extension.toast
 import com.v2ray.ang.extension.toastSuccess
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.ui.base.BaseComponentActivity
+import com.v2ray.ang.ui.compose.AppIconAction
 import com.v2ray.ang.ui.compose.AppTopBar
 import com.v2ray.ang.ui.compose.DeleteConfirmDialog
 import com.v2ray.ang.ui.compose.FormTextField
@@ -158,7 +160,8 @@ fun UserAssetUrlScreen(
                             )
                         }
                     }
-                    IconButton(onClick = {
+                    AppIconAction(label = stringResource(R.string.acc_save), icon = R.drawable.ic_fab_check,
+                        emphasized = true, onClick = {
                         val remarksErr = remarks.isBlank()
                         val urlErr = url.isBlank()
 
@@ -169,21 +172,18 @@ fun UserAssetUrlScreen(
                         if (!hasError) {
                             onSave(remarks, url)
                         }
-                    }) {
-                        Icon(
-                            painterResource(R.drawable.ic_fab_check),
-                            contentDescription = stringResource(R.string.acc_save)
-                        )
-                    }
+
+                    })
                 }
             )
         }
     ) { innerPadding ->
+        AdaptiveContent(Modifier.padding(innerPadding).consumeWindowInsets(innerPadding)) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .consumeWindowInsets(innerPadding)
+
+
                 .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(vertical = 8.dp)
@@ -202,6 +202,7 @@ fun UserAssetUrlScreen(
             )
             NavigationBarsSpacer()
         }
+            }
     }
 
     if (showDeleteConfirm) {

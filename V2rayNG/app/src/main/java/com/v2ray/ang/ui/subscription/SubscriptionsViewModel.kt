@@ -33,8 +33,14 @@ class SubscriptionsViewModel(application: Application) : BaseViewModel(applicati
     private var qrCodeJob: Job? = null
     private val _qrCode = MutableStateFlow<Bitmap?>(null)
     internal val qrCode = _qrCode.asStateFlow()
-    private val subscriptions: MutableList<SubscriptionCache> =
-        MmkvManager.decodeSubscriptions().toMutableList()
+    private val subscriptions = mutableListOf<SubscriptionCache>()
+    private val _confirmRemove = MutableStateFlow(false)
+    val confirmRemove = _confirmRemove.asStateFlow()
+    private val _updateOptions = MutableStateFlow<Map<String, Boolean>>(emptyMap())
+    val updateOptions = _updateOptions.asStateFlow()
+    private val updateOptionKeys = listOf(AppConfig.PREF_UPDATE_SUBSCRIPTION, AppConfig.PREF_AUTO_TEST_AFTER_UPDATE_SUBSCRIPTION,
+        AppConfig.PREF_AUTO_REMOVE_INVALID_AFTER_TEST, AppConfig.PREF_AUTO_SORT_AFTER_TEST)
+    private var reloadJob: Job? = null
 
     private val _subsFlow = MutableStateFlow(subscriptions.toList())
     val subsFlow: StateFlow<List<SubscriptionCache>> = _subsFlow.asStateFlow()
@@ -94,9 +100,35 @@ class SubscriptionsViewModel(application: Application) : BaseViewModel(applicati
     fun getAll(): List<SubscriptionCache> = subscriptions.toList()
 
     fun reload() {
-        subscriptions.clear()
-        subscriptions.addAll(MmkvManager.decodeSubscriptions())
-        _subsFlow.value = subscriptions.toList()
+        reloadJob?.cancel()
+        reloadJob = viewModelScope.launch {
+            try {
+                val loaded = withContext(Dispatchers.IO) {
+                    Triple(MmkvManager.decodeSubscriptions(),
+                        MmkvManager.decodeSettingsBool(AppConfig.PREF_CONFIRM_REMOVE, false),
+                        updateOptionKeys.associateWith { MmkvManager.decodeSettingsBool(it, false) })
+                }
+                subscriptions.clear()
+                subscriptions.addAll(loaded.first)
+                _subsFlow.value = subscriptions.toList()
+                _confirmRemove.value = loaded.second
+                _updateOptions.value = loaded.third
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                LogUtil.e(AppConfig.TAG, "Failed to reload subscriptions", error)
+                toastError(R.string.toast_failure)
+            }
+        }
+    }
+
+    fun setUpdateOption(key: String, enabled: Boolean) {
+        if (key !in updateOptionKeys) return
+        viewModelScope.launch(Dispatchers.IO) {
+            if (MmkvManager.encodeSettings(key, enabled)) {
+                _updateOptions.value = _updateOptions.value + (key to enabled)
+            } else toastError(R.string.toast_failure)
+        }
     }
 
     fun remove(subId: String): Boolean {

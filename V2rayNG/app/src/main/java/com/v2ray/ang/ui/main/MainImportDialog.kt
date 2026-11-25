@@ -23,6 +23,8 @@ import com.v2ray.ang.R
 @Composable
 internal fun MainImportDialog(
     isSubscription: Boolean,
+    pending: Boolean = false,
+    errorMessage: String? = null,
     onDismiss: () -> Unit,
     onAction: (MainAction) -> Unit,
 ) {
@@ -30,7 +32,7 @@ internal fun MainImportDialog(
     var input by remember { mutableStateOf("") }
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!pending) onDismiss() },
         title = {
             Text(stringResource(if (isSubscription) R.string.acc_add_subscription else R.string.home_import_text))
         },
@@ -38,6 +40,9 @@ internal fun MainImportDialog(
             Column(Modifier.imePadding().verticalScroll(rememberScrollState())) {
                 OutlinedTextField(
                     value = input,
+                    enabled = !pending,
+                    isError = errorMessage != null,
+                    supportingText = errorMessage?.let { { Text(it) } },
                     onValueChange = { input = it },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text(stringResource(if (isSubscription) R.string.sub_setting_url else R.string.title_server)) },
@@ -49,10 +54,9 @@ internal fun MainImportDialog(
         },
         confirmButton = {
             TextButton(
-                enabled = input.isNotBlank(),
+                enabled = input.isNotBlank() && !pending,
                 onClick = {
                     val config = input.trim()
-                    onDismiss()
                     onAction(
                         if (isSubscription) MainAction.ImportSubscriptionUrl(config)
                         else MainAction.ImportBatchConfig(config)
@@ -63,7 +67,7 @@ internal fun MainImportDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) }
+            TextButton(enabled = !pending, onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) }
         },
     )
 }

@@ -25,6 +25,9 @@ import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import com.v2ray.ang.ui.compose.AdaptiveContent
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -72,6 +75,7 @@ fun MainScreen(
     val isLoading by mainViewModel.isLoading.collectAsStateWithLifecycle()
     val displayText = mainViewModel.formatStatus(uiState.status)
     val selectedGuid = uiState.selectedGuid
+    val selectedProfile = uiState.selectedProfile
     val doubleColumnDisplay = uiState.doubleColumnDisplay
     val confirmRemove = uiState.confirmRemove
     val shareQRCodeBitmap = uiState.shareQRCodeBitmap
@@ -172,10 +176,23 @@ fun MainScreen(
         QRCodeDialog(bitmap = shareQRCodeBitmap, onDismiss = { onAction(MainAction.DismissQRCodeDialog) })
     }
 
+    LaunchedEffect(uiState.importState) {
+        if (uiState.importState == MainImportState.Success) {
+            showImportDialog = false
+            onAction(MainAction.DismissImportResult)
+        }
+    }
     if (showImportDialog) {
         MainImportDialog(
             isSubscription = importSubscription,
-            onDismiss = { showImportDialog = false },
+            pending = uiState.importState == MainImportState.Working,
+            errorMessage = when (uiState.importState) {
+                MainImportState.Invalid -> stringResource(R.string.import_failure_detail)
+                MainImportState.InvalidUrl -> stringResource(R.string.toast_invalid_url)
+                MainImportState.Failed -> stringResource(R.string.toast_failure)
+                else -> null
+            },
+            onDismiss = { showImportDialog = false; onAction(MainAction.DismissImportResult) },
             onAction = onAction,
         )
     }
@@ -241,7 +258,7 @@ fun MainScreen(
             BoxWithConstraints(
                 Modifier.fillMaxSize().padding(innerPadding).consumeWindowInsets(innerPadding),
             ) {
-                val wide = tv || maxWidth >= 680.dp && maxWidth > maxHeight
+                val wide = tv || maxWidth >= 840.dp && maxWidth > maxHeight
                 val horizontalPadding = if (tv) 24.dp else 16.dp
                 val actionFocus = remember { FocusRequester() }
                 var initialFocusSet by remember { mutableStateOf(false) }
@@ -265,6 +282,12 @@ fun MainScreen(
                             importSubscription = true
                             showImportDialog = true
                         },
+                        onEdit = if (!tv && selectedProfile != null && !selectedGuid.isNullOrBlank()) ({
+                            onAction(MainAction.EditServer(selectedGuid, selectedProfile))
+                        }) else null,
+                        onMore = if (!tv && selectedProfile != null && !selectedGuid.isNullOrBlank()) ({
+                            shareTarget = Triple(selectedGuid, selectedProfile, true)
+                        }) else null,
                         actionModifier = if (tv) Modifier.focusRequester(actionFocus) else Modifier,
                     )
                 }
@@ -355,17 +378,34 @@ fun MainScreen(
                     }
                 }
 
-                if (wide) {
+                if (wide && showImportShortcuts && !tv) {
+                    Row(Modifier.fillMaxSize().padding(horizontal = horizontalPadding, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        MainNavigation(false, onNavigate, Modifier.width(88.dp),
+                            onMenu = { scope.launch { drawerState.open() } },
+                            onProfiles = { onAction(MainAction.LocateSelectedServer) })
+                        AdaptiveContent(Modifier.weight(1f), maxWidth = 600.dp) {
+                            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = 28.dp),
+                                verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                                connection()
+                                MainImportShortcuts(false, hasCamera, onAction, onImportText = {
+                                    importSubscription = false
+                                    showImportDialog = true
+                                })
+                            }
+                        }
+                    }
+                } else if (wide) {
                     Row(
                         Modifier.fillMaxSize().padding(horizontal = horizontalPadding, vertical = 6.dp),
                         horizontalArrangement = Arrangement.spacedBy(if (tv) 20.dp else 16.dp),
                     ) {
-                        MainNavigation(tv, onNavigate, Modifier.width(if (tv) 140.dp else 124.dp), onMenu = {
-                            scope.launch { drawerState.open() }
-                        })
+                        MainNavigation(tv, onNavigate, Modifier.width(if (tv) 140.dp else 88.dp),
+                            onMenu = { scope.launch { drawerState.open() } },
+                            onProfiles = { onAction(MainAction.LocateSelectedServer) })
                         Box(Modifier.weight(1f).fillMaxHeight()) { profiles() }
                         Column(
-                            Modifier.weight(1f).fillMaxHeight()
+                            Modifier.weight(if (tv) 1f else 0.65f).fillMaxHeight()
                                 .verticalScroll(rememberScrollState()).padding(bottom = 16.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
@@ -373,7 +413,7 @@ fun MainScreen(
                             val inspected = if (tv) currentGroup.rows.firstOrNull { it.guid == inspectedGuid } else null
                             val profile = inspected?.profile ?: uiState.selectedProfile
                             val guid = inspected?.guid ?: uiState.selectedGuid
-                            if (profile != null && guid != null) {
+                            if (tv && profile != null && guid != null) {
                                 if (inspected != null) {
                                     Text(
                                         inspected.remarks,
@@ -383,19 +423,11 @@ fun MainScreen(
                                     )
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    if (!tv) {
-                                        MainControl(
-                                            label = stringResource(R.string.action_edit),
-                                            onClick = { onAction(MainAction.EditServer(guid, profile)) },
-                                            icon = R.drawable.ic_edit_24dp,
-                                            iconOnly = true,
-                                        )
-                                    }
                                     MainControl(
                                         label = stringResource(R.string.acc_more),
                                         onClick = { shareTarget = Triple(guid, profile, true) },
                                         tv = tv,
-                                        icon = R.drawable.ic_more_vert_24dp,
+                                        icon = R.drawable.ic_more_horiz_24dp,
                                         iconOnly = true,
                                     )
                                 }
@@ -457,13 +489,29 @@ private fun MainNavigation(
     onProfiles: () -> Unit = {},
 ) {
     val destinations = listOf(MainDestination.Subscriptions, MainDestination.Settings)
-    if (onMenu != null) {
+    if (onMenu != null && !tv) {
+        NavigationRail(modifier.fillMaxHeight(), containerColor = MaterialTheme.colorScheme.surface) {
+            NavigationRailItem(selected = true, onClick = onProfiles,
+                icon = { Icon(painterResource(R.drawable.ic_select_all_24dp), null) },
+                label = { Text(stringResource(R.string.title_server)) })
+            listOf(MainDestination.Subscriptions, MainDestination.PerAppProxy, MainDestination.Routing,
+                MainDestination.UserAssets, MainDestination.Settings).forEach { destination ->
+                key(destination) {
+                    NavigationRailItem(selected = false, onClick = { onNavigate(destination) },
+                        icon = { Icon(painterResource(destination.iconRes), null) },
+                        label = { Text(stringResource(destination.labelRes), maxLines = 1) })
+                }
+            }
+        }
+    } else if (onMenu != null) {
         Column(modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            MainControl(stringResource(R.string.title_server), onClick = onMenu, tv = tv, selected = true,
+            MainControl(stringResource(R.string.title_server), onClick = onProfiles, tv = true, selected = true,
                 modifier = Modifier.fillMaxWidth())
             destinations.forEach { destination ->
-                MainControl(stringResource(destination.labelRes), { onNavigate(destination) }, tv = tv,
-                    modifier = Modifier.fillMaxWidth())
+                key(destination) {
+                    MainControl(stringResource(destination.labelRes), { onNavigate(destination) }, tv = true,
+                        modifier = Modifier.fillMaxWidth())
+                }
             }
         }
     } else {
@@ -501,21 +549,25 @@ private fun MainImportShortcuts(
                 stringResource(R.string.menu_item_import_config_qrcode),
                 { onAction(MainAction.ImportQRcode) },
                 Modifier.fillMaxWidth(), tv = tv,
+                icon = R.drawable.ic_scan_24dp, tone = MainControlTone.Info,
             )
         }
         MainControl(
             stringResource(R.string.menu_item_import_config_clipboard),
             { onAction(MainAction.ImportClipboard) },
             Modifier.fillMaxWidth(), tv = tv,
+            icon = R.drawable.ic_copy, tone = MainControlTone.Info,
         )
         MainControl(
             stringResource(R.string.menu_item_import_config_local),
             { onAction(MainAction.ImportConfigLocal) },
             Modifier.fillMaxWidth(), tv = tv,
+            icon = R.drawable.ic_file_24dp, tone = MainControlTone.Info,
         )
         MainControl(
             stringResource(R.string.home_import_text), onImportText,
             Modifier.fillMaxWidth(), tv = tv,
+            icon = R.drawable.ic_source_code_24dp, tone = MainControlTone.Info,
         )
     }
 }

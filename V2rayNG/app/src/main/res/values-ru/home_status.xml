@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_status_loading">Загрузка конфигураций</string>
+    <string name="home_status_empty">Нет конфигурации</string>
+    <string name="home_status_select">Конфигурация не выбрана</string>
+    <string name="home_status_stopped">Служба остановлена</string>
+    <string name="home_status_running">Служба работает</string>
+    <string name="home_network_unchecked">Сеть не проверена</string>
+    <string name="home_network_available">Сеть доступна</string>
+    <string name="home_network_failed">Проблема с сетью</string>
+</resources>

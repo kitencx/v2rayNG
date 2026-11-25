@@ -1,5 +1,11 @@
 package com.v2ray.ang.ui.server
 
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import com.v2ray.ang.util.LogUtil
 import android.os.Bundle
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.clickable
@@ -25,6 +31,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import com.v2ray.ang.ui.compose.AdaptiveContent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,6 +55,7 @@ import com.v2ray.ang.extension.toastSuccess
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.ui.base.BaseComponentActivity
+import com.v2ray.ang.ui.compose.AppIconAction
 import com.v2ray.ang.ui.compose.AppTopBar
 import com.v2ray.ang.ui.compose.DeleteConfirmDialog
 import com.v2ray.ang.ui.compose.FormTextField
@@ -179,15 +187,21 @@ class ServerProxyChainActivity : BaseComponentActivity() {
             return false
         }
 
-        if (editGuid == MmkvManager.getSelectServer()) {
+        if (isProfileDeletionBlocked(editGuid, editGuid, isRunning)) {
             toast(R.string.toast_action_not_allowed)
             return false
         }
 
-        MmkvManager.removeServer(editGuid)
-
-        ProfileEditorResult.run {
-            finishDeleted(editGuid)
+        lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) { MmkvManager.removeServer(editGuid) }
+                ProfileEditorResult.run { finishDeleted(editGuid) }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                LogUtil.e(com.v2ray.ang.AppConfig.TAG, "Failed to delete profile: $editGuid", error)
+                toast(R.string.toast_failure)
+            }
         }
 
         return true
@@ -233,7 +247,7 @@ fun ProxyChainScreen(
         contentWindowInsets = WindowInsets(0),
         topBar = {
             AppTopBar(
-                title = EConfigType.PROXYCHAIN.toString(),
+                title = stringResource(R.string.server_proxy_chain),
                 onBackClick = onBackClick,
                 actions = {
                     if (showDelete) {
@@ -241,7 +255,8 @@ fun ProxyChainScreen(
                             Icon(painterResource(R.drawable.ic_delete_24dp), contentDescription = stringResource(R.string.acc_delete))
                         }
                     }
-                    IconButton(onClick = {
+                    AppIconAction(label = stringResource(R.string.acc_save), icon = R.drawable.ic_fab_check,
+                        emphasized = true, onClick = {
                         val remarksErr = remarks.isBlank()
                         isRemarksError = remarksErr
 
@@ -249,9 +264,8 @@ fun ProxyChainScreen(
                         if (!hasError) {
                             onSave(remarks, members)
                         }
-                    }) {
-                        Icon(painterResource(R.drawable.ic_fab_check), contentDescription = stringResource(R.string.acc_save))
-                    }
+
+                    })
                 }
             )
         },
@@ -269,12 +283,13 @@ fun ProxyChainScreen(
             }
         }
     ) { innerPadding ->
+        AdaptiveContent(Modifier.padding(innerPadding).consumeWindowInsets(innerPadding)) {
         LazyColumn(
             state = lazyListState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .consumeWindowInsets(innerPadding)
+
+
                 .imePadding()
                 .verticalScrollbar(lazyListState),
             contentPadding = NavigationBarsBottomPadding()
@@ -369,6 +384,7 @@ fun ProxyChainScreen(
                 }
             }
         }
+            }
     }
 
     if (showProfileDeleteConfirm) {
